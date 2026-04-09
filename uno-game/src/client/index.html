@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UNO Multiplayer</title>
+  <style>
+    :root {
+      --bg: #171426;
+      --panel: #23203a;
+      --panel-2: #151226;
+      --text: #f5f7fb;
+      --muted: #a7acc3;
+      --accent: #ff6b35;
+      --accent-2: #f7b801;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+      font-family: "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(247, 184, 1, 0.18), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(255, 107, 53, 0.18), transparent 28%),
+        linear-gradient(160deg, var(--bg), #0d0b16 70%);
+      color: var(--text);
+    }
+
+    #app {
+      max-width: 920px;
+      margin: 0 auto;
+      background: rgba(20, 18, 34, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; }
+    input, button, select {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      font-size: 14px;
+    }
+    input, select {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+    button {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #171426;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #5c6074;
+      color: #d9dbe5;
+      cursor: not-allowed;
+    }
+    .panel {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .status {
+      font-size: 15px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--panel);
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    .players {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .player-chip {
+      padding: 12px;
+      border-radius: 14px;
+      background: var(--panel);
+      color: var(--muted);
+    }
+    .player-chip.current {
+      color: var(--text);
+      outline: 2px solid rgba(255, 107, 53, 0.55);
+      transform: translateY(-1px);
+    }
+    .hand {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .card-btn {
+      min-width: 88px;
+      padding: 12px 10px;
+      color: white;
+      border-radius: 14px;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+    .card-btn.red { background: #d64545; }
+    .card-btn.yellow { background: #c7921f; }
+    .card-btn.green { background: #239b65; }
+    .card-btn.blue { background: #2d6cdf; }
+    .card-btn.wild { background: #2c3148; }
+    .muted { color: var(--muted); }
+    .error { color: #ff9b8a; min-height: 20px; }
+    .top-line { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="join" class="screen active">
+      <h1>UNO Phase 2</h1>
+      <p class="muted">4 tabs kholo, same room join karo, aur real-time mein cards khelo.</p>
+      <div class="row">
+        <input id="name-input" placeholder="Player name" />
+        <input id="room-input" placeholder="Room ID" value="room1" />
+        <button id="join-btn">Join Room</button>
+      </div>
+    </div>
+
+    <div id="lobby" class="screen">
+      <h2>Lobby</h2>
+      <p class="muted">Kam se kam 2 players chahiye. 4 tak join kar sakte hain.</p>
+      <div id="lobby-players" class="players"></div>
+      <button id="start-btn" disabled>Start Game</button>
+    </div>
+
+    <div id="game" class="screen">
+      <div id="status" class="status"></div>
+      <div class="panel">
+        <div class="top-line">
+          <div>Top card: <strong id="top-card">-</strong></div>
+          <div>Declared color: <strong id="declared-color">-</strong></div>
+        </div>
+        <div id="players-list" class="players"></div>
+      </div>
+      <div class="panel">
+        <h3>Your hand</h3>
+        <div id="my-hand" class="hand"></div>
+        <div style="margin-top: 14px;" class="row">
+          <button id="draw-btn">Draw Card</button>
+        </div>
+      </div>
+      <p id="message" class="error"></p>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let myId = null;
+    let currentState = null;
+
+    const screens = {
+      join: document.getElementById('join'),
+      lobby: document.getElementById('lobby'),
+      game: document.getElementById('game'),
+    };
+
+    const joinBtn = document.getElementById('join-btn');
+    const startBtn = document.getElementById('start-btn');
+    const drawBtn = document.getElementById('draw-btn');
+
+    function showScreen(name) {
+      Object.entries(screens).forEach(([key, node]) => {
+        node.classList.toggle('active', key === name);
+      });
+    }
+
+    function cardLabel(card) {
+      return card ? card.color + ' ' + card.value : '-';
+    }
+
+    socket.on('connect', () => {
+      myId = socket.id;
+      showScreen('join');
+    });
+
+    joinBtn.addEventListener('click', () => {
+      const playerName = document.getElementById('name-input').value || 'Player';
+      const roomId = document.getElementById('room-input').value || 'room1';
+      socket.emit('join_room', { roomId, playerName });
+      showScreen('lobby');
+    });
+
+    startBtn.addEventListener('click', () => {
+      socket.emit('start_game');
+    });
+
+    drawBtn.addEventListener('click', () => {
+      socket.emit('draw_card');
+    });
+
+    socket.on('room_update', ({ players, canStart }) => {
+      document.getElementById('lobby-players').innerHTML = players
+        .map((player) => '<div class="player-chip">' + player.name + '</div>')
+        .join('');
+      startBtn.disabled = !canStart;
+
+      if (!currentState) {
+        showScreen('lobby');
+      }
+    });
+
+    socket.on('state_update', (state) => {
+      currentState = state;
+      showScreen('game');
+
+      const isMyTurn = state.currentPlayerId === myId;
+      const finished = state.status === 'finished';
+
+      document.getElementById('status').textContent = finished
+        ? (state.winner === myId ? 'Game over: tum jeete.' : 'Game over: kisi aur ne jeeta.')
+        : (isMyTurn ? 'Ab tumhari turn hai.' : 'Dusre player ki turn chal rahi hai.');
+
+      document.getElementById('top-card').textContent = cardLabel(state.topCard);
+      document.getElementById('declared-color').textContent = state.declaredColor || '-';
+
+      document.getElementById('players-list').innerHTML = state.players
+        .map((player) => {
+          const chipClass = player.isCurrentTurn ? 'player-chip current' : 'player-chip';
+          return '<div class="' + chipClass + '">' +
+            '<strong>' + player.name + '</strong><br />' +
+            '<span>' + player.cardCount + ' cards</span>' +
+            '</div>';
+        })
+        .join('');
+
+      document.getElementById('my-hand').innerHTML = state.myHand
+        .map((card, index) => {
+          const colorClass = card.color === 'wild' ? 'wild' : card.color;
+          const disabled = !isMyTurn || finished ? 'disabled' : '';
+          return '<button class="card-btn ' + colorClass + '" onclick="playCard(' + index + ')" ' + disabled + '>' +
+            cardLabel(card) +
+            '</button>';
+        })
+        .join('');
+
+      drawBtn.disabled = !isMyTurn || finished;
+    });
+
+    window.playCard = function playCard(index) {
+      const card = currentState.myHand[index];
+      let declaredColor = null;
+
+      if (card.color === 'wild') {
+        declaredColor = window.prompt('Choose a color: red, yellow, green, blue');
+        if (!declaredColor) {
+          return;
+        }
+
+        declaredColor = declaredColor.trim().toLowerCase();
+        if (!['red', 'yellow', 'green', 'blue'].includes(declaredColor)) {
+          document.getElementById('message').textContent = 'Choose a valid color.';
+          return;
+        }
+      }
+
+      socket.emit('play_card', { cardIndex: index, declaredColor });
+    };
+
+    socket.on('invalid_move', (message) => {
+      document.getElementById('message').textContent = 'Invalid move: ' + message;
+      window.setTimeout(() => {
+        document.getElementById('message').textContent = '';
+      }, 2500);
+    });
+
+    socket.on('error', (message) => {
+      window.alert('Error: ' + message);
+      if (!currentState) {
+        showScreen('join');
+      }
+    });
+  </script>
+</body>
+</html>
