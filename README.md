@@ -1,80 +1,190 @@
-﻿# UNO Multiplayer - System Design Demo
+# UNO Multiplayer
 
-> 10-day build. Real-time multiplayer card game showcasing production backend patterns.
+Realtime UNO built with a Node/Express + Socket.IO server and a React/Vite client.
 
-## Architecture
+The app supports:
+- Direct room join
+- Matchmaking queue
+- Bot-filled tables
+- Reconnect flow
+- Rate-limited actions
+- ELO updates
+- Persistent game state when Redis is enabled
 
-Browser (4 tabs)
-  -> Socket.IO
-Express + Socket.IO Server
-  - UNO Engine (pure JS)
-  - Rate Limiter (sliding window via Redis)
-  - Matchmaking Queue (Redis FIFO)
-  - Bot Player (rule-based AI)
-  - ELO Rating (Redis sorted set)
-  -> Redis
-    - game:{roomId}
-    - player:{name}
-    - ratelimit:{id}:{event}
-    - rating:{name}
-    - leaderboard
-    - matchmaking:queue
+## Tech Stack
 
-## Key Design Decisions
+- React 19
+- Vite
+- Socket.IO
+- Express
+- Node.js
+- Redis via `ioredis`
+- Jest for tests
 
-### Server behavior
-Game state is persisted in Redis, while Node keeps only live room helpers.
-Restart the server and reconnect flow still works from saved state.
+## Project Structure
 
-### Sliding window rate limiter
-`ZADD` timestamps + `ZREMRANGEBYSCORE` + `ZCARD` per socket per event.
-This blocks rapid-fire cheating and keeps the server responsive.
+```text
+uno-game/
+  src/
+    client/
+      index.html
+      src/
+        App.jsx
+        main.jsx
+        styles.css
+        components/
+        screens/
+        utils/
+    engine/
+    matchmaking/
+    ratings/
+    server/
+  tests/
+```
 
-### Clean structured logs
-`logger.debug/info/warn/error` keeps terminal output readable and makes
-matchmaking, bot turns, and rate-limit blocks easy to scan.
+## Requirements
 
-### Bot player
-Decision tree: match color -> match value -> play wild -> draw.
-Bot uses the same `UnoEngine` interface as human players.
+- Node.js 18+ recommended
+- Redis optional, but recommended if you want persistence across restarts
 
-### ELO leaderboard
-`ZADD leaderboard <score> <player>` + `ZREVRANGE` powers the top 10 list.
+If Redis is not configured, the app falls back to an in-memory store for the current process only.
 
-## Quick Start
+## Setup
+
+From the `uno-game` folder:
 
 ```bash
-redis-server
 npm install
+```
+
+## Run The App
+
+Development mode:
+
+```bash
+npm run dev
+```
+
+Production mode:
+
+```bash
 npm start
 ```
 
-Open `http://localhost:3000` in 4 tabs.
+`npm start` runs the Vite build first, then starts the Express server.
 
-## Socket Events
+Open the app at:
 
-| Socket Event   | Direction       | Description              |
-|----------------|-----------------|--------------------------|
-| `find_match`   | client -> server | Join matchmaking queue   |
-| `join_room`    | client -> server | Direct room join         |
-| `start_game`   | client -> server | Start when 2+ players    |
-| `play_card`    | client -> server | Play card by index       |
-| `draw_card`    | client -> server | Draw from pile           |
-| `state_update` | server -> client | Filtered game state      |
-| `elo_update`   | server -> client | Rating change after game |
-| `rate_limited` | server -> client | Slow down notification   |
+- `http://localhost:3000` for the server
+- `http://localhost:5173` if you are using Vite dev mode
+
+## Optional Redis Setup
+
+The app uses Redis automatically when one of these is set:
+
+- `REDIS_URL`
+- `REDIS_HOST`
+- `REDIS_ENABLE=true`
+
+Example:
+
+```bash
+set REDIS_URL=redis://localhost:6379
+npm start
+```
+
+On PowerShell:
+
+```powershell
+$env:REDIS_URL="redis://localhost:6379"
+npm start
+```
+
+If Redis is not enabled, the app still runs, but room state and ratings reset when the server restarts.
+
+## Available Scripts
+
+- `npm run dev` - start the Vite dev server
+- `npm run build` - build the React client into `src/client/dist`
+- `npm start` - build the client and launch the Express/Socket.IO server
+- `npm test` - run Jest tests
+
+## Features
+
+### Landing and Lobby
+
+- Join a room by name and room ID
+- Find a match through the queue
+- See connected players and room state
+
+### Game Table
+
+- Play matching cards
+- Draw cards
+- Choose a color after wild cards
+- Call UNO
+- See turn direction, discard pile, and draw pile count
+
+### Reconnect Flow
+
+- Rejoin a room after reconnecting
+- Restore the previous state when persistence is available
+
+### Ratings
+
+- ELO updates are applied after a finished match
+- The leaderboard is exposed through an HTTP endpoint
 
 ## HTTP Endpoints
 
-| Endpoint          | Description           |
-|-------------------|-----------------------|
-| `GET /health`      | Server uptime check   |
-| `GET /leaderboard` | Top 10 ELO rankings   |
+### `GET /leaderboard`
 
-## Phases Built
+Returns the top 10 ELO entries.
 
-- Phase 1 - UNO Engine
-- Phase 2 - Socket.IO real-time rooms
-- Phase 3 - Redis state + reconnect flow
-- Phase 4 - Matchmaking queue + bot + ELO
-- Phase 5 - Rate limiting + clean logs + README refresh
+There is no `/health` endpoint in the current server.
+
+## Socket Events
+
+### Client to Server
+
+- `find_match` - join matchmaking
+- `join_room` - join a specific room
+- `start_game` - start a room when enough players are present
+- `play_card` - play a card by index
+- `draw_card` - draw from the pile
+- `game:uno` - call UNO
+
+### Server to Client
+
+- `queue_update` - matchmaking queue status
+- `match_found` - match has been created
+- `room_update` - lobby state update
+- `state_update` - filtered game state for the current player
+- `reconnected` - reconnect succeeded
+- `invalid_move` - rejected action
+- `rate_limited` - action was rate-limited
+- `elo_update` - rating change after a game
+- `uno_called` - someone called UNO
+
+## Game Flow
+
+1. Open the app.
+2. Enter a name.
+3. Join a room or use matchmaking.
+4. Start the game once enough players are present.
+5. Play cards, draw cards, or call UNO.
+6. When a round ends, ELO updates are sent automatically.
+
+## Testing
+
+```bash
+npm test
+```
+
+## Notes
+
+- The client is a React app bundled by Vite.
+- The Express server serves the built client in production.
+- The UI is split into screen and component modules under `src/client/src`.
+- The engine logic stays in `src/engine` and is separate from the UI.
+
