@@ -52,6 +52,25 @@ test('wild keeps declared color for the next player', () => {
   engine.addPlayer('p2', 'B');
 
   engine.state.status = 'playing';
+  engine.state.players[0].hand = [new Card('wild', 'wild'), new Card('red', '2')];
+  engine.state.players[1].hand = [new Card('blue', '3')];
+  engine.state.discardPile = [new Card('red', '5')];
+  engine.state.drawPile = [new Card('yellow', '9')];
+  engine.state.currentPlayerIndex = 0;
+
+  const result = engine.playCard('p1', 1, 'blue');
+
+  expect(result.success).toBe(true);
+  expect(engine.state.declaredColor).toBe('blue');
+  expect(engine.state.currentPlayer.id).toBe('p2');
+});
+
+test('playing the last wild card ends the game and keeps declared color', () => {
+  const engine = new UnoEngine();
+  engine.addPlayer('p1', 'A');
+  engine.addPlayer('p2', 'B');
+
+  engine.state.status = 'playing';
   engine.state.players[0].hand = [new Card('wild', 'wild')];
   engine.state.players[1].hand = [new Card('blue', '3')];
   engine.state.discardPile = [new Card('red', '5')];
@@ -61,8 +80,9 @@ test('wild keeps declared color for the next player', () => {
   const result = engine.playCard('p1', 0, 'blue');
 
   expect(result.success).toBe(true);
+  expect(engine.state.status).toBe('finished');
+  expect(engine.state.winner).toBe('p1');
   expect(engine.state.declaredColor).toBe('blue');
-  expect(engine.state.currentPlayer.id).toBe('p2');
 });
 
 test('toJSON and fromJSON round-trip engine state', () => {

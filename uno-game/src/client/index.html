@@ -123,13 +123,15 @@
 <body>
   <div id="app">
     <div id="join" class="screen active">
-      <h1>UNO Phase 2</h1>
+      <h1>UNO Phase 4</h1>
       <p class="muted">4 tabs kholo, same room join karo, aur real-time mein cards khelo.</p>
       <div class="row">
         <input id="name-input" placeholder="Player name" />
         <input id="room-input" placeholder="Room ID" value="room1" />
         <button id="join-btn">Join Room</button>
+        <button id="match-btn">Find Match</button>
       </div>
+      <div id="queue-status" class="muted" style="margin-top: 12px;"></div>
     </div>
 
     <div id="lobby" class="screen">
@@ -155,6 +157,7 @@
           <button id="draw-btn">Draw Card</button>
         </div>
       </div>
+      <div id="elo-result" class="panel" style="display: none;"></div>
       <p id="message" class="error"></p>
     </div>
   </div>
@@ -172,8 +175,22 @@
     };
 
     const joinBtn = document.getElementById('join-btn');
+    const matchBtn = document.getElementById('match-btn');
     const startBtn = document.getElementById('start-btn');
     const drawBtn = document.getElementById('draw-btn');
+
+    window.addEventListener('load', () => {
+      const savedName = localStorage.getItem('uno_name');
+      const savedRoom = localStorage.getItem('uno_room');
+
+      if (savedName) {
+        document.getElementById('name-input').value = savedName;
+      }
+
+      if (savedRoom) {
+        document.getElementById('room-input').value = savedRoom;
+      }
+    });
 
     function showScreen(name) {
       Object.entries(screens).forEach(([key, node]) => {
@@ -191,10 +208,11 @@
     });
 
     joinBtn.addEventListener('click', () => {
-      const playerName = document.getElementById('name-input').value || 'Player';
-      const roomId = document.getElementById('room-input').value || 'room1';
-      socket.emit('join_room', { roomId, playerName });
-      showScreen('lobby');
+      joinRoom();
+    });
+
+    matchBtn.addEventListener('click', () => {
+      findMatch();
     });
 
     startBtn.addEventListener('click', () => {
@@ -204,6 +222,34 @@
     drawBtn.addEventListener('click', () => {
       socket.emit('draw_card');
     });
+
+    function getPlayerName() {
+      return document.getElementById('name-input').value || 'Player';
+    }
+
+    function getRoomId() {
+      return document.getElementById('room-input').value || 'room1';
+    }
+
+    function joinRoom() {
+      const playerName = getPlayerName();
+      const roomId = getRoomId();
+
+      localStorage.setItem('uno_name', playerName);
+      localStorage.setItem('uno_room', roomId);
+      document.getElementById('queue-status').textContent = '';
+
+      socket.emit('join_room', { roomId, playerName });
+      showScreen('lobby');
+    }
+
+    function findMatch() {
+      const playerName = getPlayerName();
+      localStorage.setItem('uno_name', playerName);
+      document.getElementById('queue-status').textContent = 'Matchmaking chal rahi hai...';
+      socket.emit('find_match', { playerName });
+      showScreen('join');
+    }
 
     socket.on('room_update', ({ players, canStart }) => {
       document.getElementById('lobby-players').innerHTML = players
@@ -219,6 +265,7 @@
     socket.on('state_update', (state) => {
       currentState = state;
       showScreen('game');
+      document.getElementById('queue-status').textContent = '';
 
       const isMyTurn = state.currentPlayerId === myId;
       const finished = state.status === 'finished';
@@ -278,6 +325,46 @@
       window.setTimeout(() => {
         document.getElementById('message').textContent = '';
       }, 2500);
+    });
+
+    socket.on('queue_update', ({ position, message }) => {
+      document.getElementById('queue-status').textContent =
+        'Queue position: ' + position + ' - ' + message;
+    });
+
+    socket.on('match_found', ({ roomId, players }) => {
+      document.getElementById('queue-status').textContent =
+        'Match mila! Room: ' + roomId + ' - Players: ' + players.join(', ');
+      showScreen('lobby');
+    });
+
+    socket.on('reconnected', ({ message }) => {
+      document.getElementById('queue-status').textContent = message;
+    });
+
+    socket.on('elo_update', ({ oldRating, newRating, delta, isWinner }) => {
+      const box = document.getElementById('elo-result');
+      const sign = delta >= 0 ? '+' : '';
+      const color = delta >= 0 ? '#1D9E75' : '#E24B4A';
+      box.style.display = 'block';
+      box.innerHTML =
+        '<div style="font-size:13px; color:#aaa;">' +
+        (isWinner ? 'Winner' : 'Result') +
+        '</div>' +
+        '<div style="font-size:20px; font-weight:500; margin:4px 0;">' +
+        oldRating +
+        ' -> <span style="color:' +
+        color +
+        '">' +
+        newRating +
+        '</span>' +
+        '</div>' +
+        '<div style="font-size:13px; color:' +
+        color +
+        ';">' +
+        sign +
+        delta +
+        ' ELO</div>';
     });
 
     socket.on('error', (message) => {

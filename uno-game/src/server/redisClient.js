@@ -1,7 +1,6 @@
 let Redis;
 
 try {
-  // Prefer the real Redis client when the dependency is installed.
   Redis = require('ioredis');
 } catch (error) {
   Redis = null;
@@ -62,6 +61,70 @@ class InMemoryRedis {
     }
 
     return 'OK';
+  }
+
+  async rpush(key, value) {
+    const list = this.sharedState.lists.get(key) || [];
+    list.push(value);
+    this.sharedState.lists.set(key, list);
+    return list.length;
+  }
+
+  async lrange(key, start, stop) {
+    const list = this.sharedState.lists.get(key) || [];
+    const normalizedStart = start < 0 ? Math.max(list.length + start, 0) : start;
+    const normalizedStop = stop < 0 ? list.length + stop : stop;
+    return list.slice(normalizedStart, normalizedStop + 1);
+  }
+
+  async lrem(key, count, value) {
+    const list = this.sharedState.lists.get(key) || [];
+    let removed = 0;
+    const next = [];
+
+    for (const item of list) {
+      const shouldRemove = item === value && (count === 0 || removed < count);
+      if (shouldRemove) {
+        removed += 1;
+        continue;
+      }
+      next.push(item);
+    }
+
+    this.sharedState.lists.set(key, next);
+    return removed;
+  }
+
+  async lpop(key) {
+    const list = this.sharedState.lists.get(key) || [];
+    const value = list.shift() ?? null;
+    this.sharedState.lists.set(key, list);
+    return value;
+  }
+
+  async llen(key) {
+    const list = this.sharedState.lists.get(key) || [];
+    return list.length;
+  }
+
+  async zadd(key, score, member) {
+    const set = this.sharedState.sortedSets.get(key) || new Map();
+    set.set(member, Number(score));
+    this.sharedState.sortedSets.set(key, set);
+    return 1;
+  }
+
+  async zrevrange(key, start, stop, withScores) {
+    const set = this.sharedState.sortedSets.get(key) || new Map();
+    const items = [...set.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(start, stop + 1);
+
+    if (withScores === 'WITHSCORES') {
+      return items.flatMap(([member, score]) => [member, String(score)]);
+    }
+
+    return items.map(([member]) => member);
   }
 
   async watch(key) {
@@ -140,10 +203,22 @@ class InMemoryTransaction {
 const sharedState = {
   store: new Map(),
   ttls: new Map(),
+  lists: new Map(),
+  sortedSets: new Map(),
 };
 
-const redis = Redis ? new Redis() : new InMemoryRedis(sharedState);
-const watchClient = Redis ? new Redis() : new InMemoryRedis(sharedState);
+function shouldUseRedis() {
+  return Boolean(
+    Redis &&
+      (process.env.REDIS_URL ||
+        process.env.REDIS_HOST ||
+        process.env.REDIS_ENABLE === 'true')
+  );
+}
+
+const useRedis = shouldUseRedis();
+const redis = useRedis ? new Redis(process.env.REDIS_URL || undefined) : new InMemoryRedis(sharedState);
+const watchClient = useRedis ? new Redis(process.env.REDIS_URL || undefined) : new InMemoryRedis(sharedState);
 
 redis.on('error', (err) => console.error('Redis error:', err));
 watchClient.on('error', (err) => console.error('Redis watch error:', err));
