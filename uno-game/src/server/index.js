@@ -1,5 +1,7 @@
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { Server } = require('socket.io');
 const { UnoEngine } = require('../engine/UnoEngine');
 const { saveState, loadState, setPlayerRoom, getPlayerRoom } = require('./gameStore');
@@ -21,7 +23,11 @@ const io = new Server(server, {
   cors: { origin: '*' },
 });
 
-app.use(express.static('src/client'));
+const clientDist = path.join(process.cwd(), 'src/client/dist');
+const clientSource = path.join(process.cwd(), 'src/client');
+const clientRoot = fs.existsSync(path.join(clientDist, 'index.html')) ? clientDist : clientSource;
+
+app.use(express.static(clientRoot));
 
 app.get('/leaderboard', async (req, res) => {
   try {
@@ -432,6 +438,37 @@ io.on('connection', (socket) => {
       await broadcastState(meta.roomId);
     } catch (error) {
       logger.error('Game', 'draw_card failed', error);
+      socket.emit('error', error.message);
+    }
+  });
+
+  withRateLimit(socket, 'game:uno', 4, 10, async () => {
+    const meta = socketMeta.get(socket.id);
+    if (!meta?.roomId) {
+      return;
+    }
+
+    try {
+      const room = await getOrCreateRoom(meta.roomId, meta.mode || 'manual');
+      const player = room.engine.state.players.find((entry) => entry.id === socket.id);
+
+      if (!player) {
+        socket.emit('error', 'Player not found');
+        return;
+      }
+
+      if (player.handCount() !== 1) {
+        socket.emit('invalid_move', 'You can only call UNO when you have exactly 1 card left');
+        return;
+      }
+
+      io.to(meta.roomId).emit('uno_called', {
+        playerId: socket.id,
+        playerName: meta.name,
+      });
+      logger.info('Game', `${meta.name} called UNO in ${meta.roomId}`);
+    } catch (error) {
+      logger.error('Game', 'game:uno failed', error);
       socket.emit('error', error.message);
     }
   });

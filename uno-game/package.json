@@ -4,16 +4,24 @@
   "description": "",
   "main": "src/server/index.js",
   "scripts": {
+    "build": "vite build",
     "start": "node src/server/index.js",
+    "prestart": "npm run build",
+    "dev": "vite",
     "test": "jest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
     "express": "^5.1.0",
     "ioredis": "^5.4.1",
-    "socket.io": "^4.8.1"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.3",
+    "vite": "^8.0.8"
   },
   "devDependencies": {
     "jest": "^29.7.0"
