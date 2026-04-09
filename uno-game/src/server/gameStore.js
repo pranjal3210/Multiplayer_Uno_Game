@@ -1,7 +1,8 @@
 const { redis, watchClient } = require('./redisClient');
+const logger = require('./logger');
 
 const KEY = (roomId) => `game:${roomId}`;
-const PLAYER_KEY = (playerName) => `player:${playerName}`;
+const PLAYER_KEY = (clientId) => `player:${clientId}`;
 const TTL = 60 * 60 * 2;
 
 async function saveState(roomId, engineState) {
@@ -36,7 +37,7 @@ async function atomicUpdate(roomId, callback, retries = 3) {
       const results = await pipeline.exec();
       if (results === null) {
         await watchClient.unwatch();
-        console.log(`Retry attempt ${attempt + 1} for room ${roomId}`);
+        logger.debug('GameStore', `Retry attempt ${attempt + 1} for room ${roomId}`);
         continue;
       }
 
@@ -50,12 +51,12 @@ async function atomicUpdate(roomId, callback, retries = 3) {
   return { success: false, reason: 'max_retries_exceeded' };
 }
 
-async function setPlayerRoom(playerName, roomId) {
-  await redis.set(PLAYER_KEY(playerName), roomId, 'EX', TTL);
+async function setPlayerRoom(clientId, roomId) {
+  await redis.set(PLAYER_KEY(clientId), roomId, 'EX', TTL);
 }
 
-async function getPlayerRoom(playerName) {
-  return redis.get(PLAYER_KEY(playerName));
+async function getPlayerRoom(clientId) {
+  return redis.get(PLAYER_KEY(clientId));
 }
 
 module.exports = {

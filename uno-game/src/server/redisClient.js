@@ -1,4 +1,5 @@
 let Redis;
+const logger = require('./logger');
 
 try {
   Redis = require('ioredis');
@@ -31,6 +32,21 @@ class InMemoryRedis {
     return entry ? entry.value : null;
   }
 
+  _clearTtl(key) {
+    const timeout = this.sharedState.ttls.get(key);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.sharedState.ttls.delete(key);
+    }
+  }
+
+  _deleteKey(key) {
+    this.sharedState.store.delete(key);
+    this.sharedState.lists.delete(key);
+    this.sharedState.sortedSets.delete(key);
+    this._clearTtl(key);
+  }
+
   async set(key, value, mode, ttlSeconds) {
     const entry = {
       value,
@@ -40,17 +56,13 @@ class InMemoryRedis {
     this.sharedState.store.set(key, entry);
 
     if (mode === 'EX' && typeof ttlSeconds === 'number') {
-      const timeout = this.sharedState.ttls.get(key);
-      if (timeout) {
-        clearTimeout(timeout);
-      }
+      this._clearTtl(key);
 
       const nextTimeout = setTimeout(() => {
         const current = this.sharedState.store.get(key);
         if (current && current.version === entry.version) {
-          this.sharedState.store.delete(key);
+          this._deleteKey(key);
         }
-        this.sharedState.ttls.delete(key);
       }, ttlSeconds * 1000);
 
       if (typeof nextTimeout.unref === 'function') {
@@ -114,6 +126,34 @@ class InMemoryRedis {
     return 1;
   }
 
+  async zremrangebyscore(key, min, max) {
+    const set = this.sharedState.sortedSets.get(key);
+    if (!set) {
+      return 0;
+    }
+
+    let removed = 0;
+    for (const [member, score] of [...set.entries()]) {
+      if (score >= min && score <= max) {
+        set.delete(member);
+        removed += 1;
+      }
+    }
+
+    if (set.size === 0) {
+      this.sharedState.sortedSets.delete(key);
+    } else {
+      this.sharedState.sortedSets.set(key, set);
+    }
+
+    return removed;
+  }
+
+  async zcard(key) {
+    const set = this.sharedState.sortedSets.get(key);
+    return set ? set.size : 0;
+  }
+
   async zrevrange(key, start, stop, withScores) {
     const set = this.sharedState.sortedSets.get(key) || new Map();
     const items = [...set.entries()]
@@ -125,6 +165,21 @@ class InMemoryRedis {
     }
 
     return items.map(([member]) => member);
+  }
+
+  async expire(key, ttlSeconds) {
+    this._clearTtl(key);
+
+    const nextTimeout = setTimeout(() => {
+      this._deleteKey(key);
+    }, ttlSeconds * 1000);
+
+    if (typeof nextTimeout.unref === 'function') {
+      nextTimeout.unref();
+    }
+
+    this.sharedState.ttls.set(key, nextTimeout);
+    return 1;
   }
 
   async watch(key) {
@@ -140,6 +195,49 @@ class InMemoryRedis {
 
   multi() {
     return new InMemoryTransaction(this.sharedState, this.watchedKeys);
+  }
+
+  pipeline() {
+    return new InMemoryPipeline(this);
+  }
+}
+
+class InMemoryPipeline {
+  constructor(redisClient) {
+    this.redisClient = redisClient;
+    this.ops = [];
+  }
+
+  zremrangebyscore(...args) {
+    this.ops.push(['zremrangebyscore', args]);
+    return this;
+  }
+
+  zadd(...args) {
+    this.ops.push(['zadd', args]);
+    return this;
+  }
+
+  zcard(...args) {
+    this.ops.push(['zcard', args]);
+    return this;
+  }
+
+  expire(...args) {
+    this.ops.push(['expire', args]);
+    return this;
+  }
+
+  async exec() {
+    const results = [];
+
+    for (const [method, args] of this.ops) {
+      const value = await this.redisClient[method](...args);
+      results.push([null, value]);
+    }
+
+    this.ops = [];
+    return results;
   }
 }
 
@@ -220,7 +318,7 @@ const useRedis = shouldUseRedis();
 const redis = useRedis ? new Redis(process.env.REDIS_URL || undefined) : new InMemoryRedis(sharedState);
 const watchClient = useRedis ? new Redis(process.env.REDIS_URL || undefined) : new InMemoryRedis(sharedState);
 
-redis.on('error', (err) => console.error('Redis error:', err));
-watchClient.on('error', (err) => console.error('Redis watch error:', err));
+redis.on('error', (err) => logger.error('Redis', 'Redis error', err));
+watchClient.on('error', (err) => logger.error('Redis', 'Redis watch error', err));
 
 module.exports = { redis, watchClient };

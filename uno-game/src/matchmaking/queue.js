@@ -1,4 +1,5 @@
 const { redis } = require('../server/redisClient');
+const logger = require('../server/logger');
 
 const QUEUE_KEY = 'matchmaking:queue';
 const MATCH_SIZE = 2;
@@ -9,15 +10,16 @@ function buildRoomId() {
   return `room_${stamp}_${random}`;
 }
 
-async function enqueue(socketId, playerName) {
+async function enqueue(socketId, playerName, clientId = null) {
   const entry = JSON.stringify({
     socketId,
     playerName,
+    clientId,
     joinedAt: Date.now(),
   });
 
   await redis.rpush(QUEUE_KEY, entry);
-  console.log(`Queued: ${playerName}`);
+  logger.info('Matchmaking', `Queued ${playerName}`);
 }
 
 async function dequeue(socketId) {
@@ -27,7 +29,7 @@ async function dequeue(socketId) {
     const parsed = JSON.parse(item);
     if (parsed.socketId === socketId) {
       await redis.lrem(QUEUE_KEY, 1, item);
-      console.log(`Dequeued: ${parsed.playerName}`);
+      logger.info('Matchmaking', `Dequeued ${parsed.playerName}`);
       return parsed;
     }
   }
@@ -57,7 +59,7 @@ async function tryMatch() {
   }
 
   const roomId = buildRoomId();
-  console.log(`Match found in ${roomId}: ${players.map((p) => p.playerName).join(', ')}`);
+  logger.info('Matchmaking', `Match found in ${roomId}`, players.map((p) => p.playerName));
 
   return { roomId, players };
 }

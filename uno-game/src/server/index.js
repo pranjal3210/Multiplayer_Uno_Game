@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { UnoEngine } = require('../engine/UnoEngine');
-const { saveState, loadState } = require('./gameStore');
+const { saveState, loadState, setPlayerRoom, getPlayerRoom } = require('./gameStore');
 const { enqueue, dequeue, tryMatch, getQueueLength } = require('../matchmaking/queue');
 const { BotPlayer } = require('../matchmaking/botPlayer');
 const { updateRatingsMultiplayer } = require('../ratings/elo');
@@ -12,6 +12,8 @@ const {
   setRating,
   updateLeaderboard,
 } = require('../ratings/ratingStore');
+const { withRateLimit } = require('./rateLimiter');
+const logger = require('./logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,7 +28,7 @@ app.get('/leaderboard', async (req, res) => {
     const board = await getLeaderboard(10);
     res.json(board);
   } catch (error) {
-    console.error('Leaderboard error:', error);
+    logger.error('HTTP', 'Leaderboard fetch failed', error);
     res.status(500).json({ error: 'Unable to load leaderboard' });
   }
 });
@@ -146,7 +148,8 @@ async function handleGameOver(roomId, engineJSON) {
     });
   }
 
-  console.log(`Game over in ${roomId}. ELO updated.`);
+  const winner = humanPlayers.find((player) => player.id === engine.state.winner);
+  logger.info('ELO', `Game over in ${roomId} - winner: ${winner?.name || 'unknown'}`);
 }
 
 async function scheduleBotTurn(roomId) {
@@ -182,7 +185,7 @@ async function scheduleBotTurn(roomId) {
     }
   } catch (error) {
     room.botTurnRunning = false;
-    console.error(`Bot turn failed for ${roomId}:`, error);
+    logger.error('Bot', `Bot turn failed for ${roomId}`, error);
   }
 }
 
@@ -226,11 +229,17 @@ async function broadcastState(roomId) {
   }
 }
 
-async function addOrReconnectPlayer(room, socket, playerName) {
-  const existingPlayer = room.engine.state.players.find((player) => player.name === playerName);
+async function addOrReconnectPlayer(room, socket, playerName, clientId) {
+  const mappedRoomId = await getPlayerRoom(clientId);
+  const existingPlayer = room.engine.state.players.find((player) => player.clientId === clientId);
 
   if (existingPlayer) {
+    if (mappedRoomId && mappedRoomId !== room.roomId) {
+      logger.debug('Join', `${playerName} mapped to ${mappedRoomId}, reattaching in ${room.roomId}`);
+    }
     existingPlayer.id = socket.id;
+    existingPlayer.clientId = clientId;
+    await setPlayerRoom(clientId, room.roomId);
     return { reconnected: true };
   }
 
@@ -238,7 +247,8 @@ async function addOrReconnectPlayer(room, socket, playerName) {
     throw new Error('Game already in progress');
   }
 
-  room.engine.addPlayer(socket.id, playerName);
+  room.engine.addPlayer(socket.id, playerName, clientId);
+  await setPlayerRoom(clientId, room.roomId);
   return { reconnected: false };
 }
 
@@ -247,7 +257,10 @@ async function startMatchFromQueue(ioInstance, match) {
   const room = createRoom(roomId, 'match');
 
   for (const player of players) {
-    room.engine.addPlayer(player.socketId, player.playerName);
+    room.engine.addPlayer(player.socketId, player.playerName, player.clientId || null);
+    if (player.clientId) {
+      await setPlayerRoom(player.clientId, roomId);
+    }
   }
 
   const botsNeeded = Math.max(0, 4 - players.length);
@@ -270,6 +283,7 @@ async function startMatchFromQueue(ioInstance, match) {
       name: player.playerName,
       roomId,
       mode: 'match',
+      clientId: player.clientId || null,
     });
     playerSocket.join(roomId);
     playerSocket.emit('match_found', {
@@ -282,20 +296,22 @@ async function startMatchFromQueue(ioInstance, match) {
 }
 
 io.on('connection', (socket) => {
-  console.log('connected:', socket.id);
+  logger.info('Socket', `Connected: ${socket.id.slice(0, 8)}`);
 
-  socket.on('join_room', async ({ roomId, playerName }) => {
+  withRateLimit(socket, 'join_room', 5, 10, async ({ roomId, playerName, clientId } = {}) => {
     const safeRoomId = safeString(roomId, 'room1');
     const safeName = safeString(playerName, 'Player');
+    const safeClientId = safeString(clientId, socket.id);
 
     try {
       const room = await getOrCreateRoom(safeRoomId, 'manual');
-      const result = await addOrReconnectPlayer(room, socket, safeName);
+      const result = await addOrReconnectPlayer(room, socket, safeName, safeClientId);
 
       socketMeta.set(socket.id, {
         name: safeName,
         roomId: safeRoomId,
         mode: 'manual',
+        clientId: safeClientId,
       });
 
       socket.join(safeRoomId);
@@ -312,23 +328,27 @@ io.on('connection', (socket) => {
         socket.emit('state_update', room.engine.getStateFor(socket.id));
         await scheduleBotTurn(safeRoomId);
       }
+
+      logger.info('Join', `${safeName} joined ${safeRoomId}`);
     } catch (error) {
-      console.error(error);
+      logger.error('Join', 'Join room failed', error);
       socket.emit('error', error.message);
     }
   });
 
-  socket.on('find_match', async ({ playerName }) => {
+  withRateLimit(socket, 'find_match', 3, 10, async ({ playerName, clientId } = {}) => {
     const safeName = safeString(playerName, 'Player');
+    const safeClientId = safeString(clientId, socket.id);
 
     try {
       socketMeta.set(socket.id, {
         name: safeName,
         roomId: null,
         mode: 'queue',
+        clientId: safeClientId,
       });
 
-      await enqueue(socket.id, safeName);
+      await enqueue(socket.id, safeName, safeClientId);
 
       const queueLength = await getQueueLength();
       socket.emit('queue_update', {
@@ -343,12 +363,12 @@ io.on('connection', (socket) => {
 
       await startMatchFromQueue(io, match);
     } catch (error) {
-      console.error(error);
+      logger.error('Matchmaking', 'find_match failed', error);
       socket.emit('error', error.message);
     }
   });
 
-  socket.on('start_game', async () => {
+  withRateLimit(socket, 'start_game', 2, 10, async () => {
     const meta = socketMeta.get(socket.id);
     if (!meta?.roomId) {
       return;
@@ -363,12 +383,14 @@ io.on('connection', (socket) => {
       room.engine.startGame();
       room.gameOverHandled = false;
       await broadcastState(meta.roomId);
+      logger.info('Game', `Started manually in ${meta.roomId}`);
     } catch (error) {
+      logger.error('Game', 'start_game failed', error);
       socket.emit('error', error.message);
     }
   });
 
-  socket.on('play_card', async ({ cardIndex, declaredColor }) => {
+  withRateLimit(socket, 'play_card', 8, 5, async ({ cardIndex, declaredColor } = {}) => {
     const meta = socketMeta.get(socket.id);
     if (!meta?.roomId) {
       return;
@@ -379,17 +401,19 @@ io.on('connection', (socket) => {
       const result = room.engine.playCard(socket.id, cardIndex, declaredColor);
 
       if (!result.success) {
+        logger.warn('Game', `Invalid move by ${meta.name}: ${result.error}`);
         socket.emit('invalid_move', result.error);
         return;
       }
 
       await broadcastState(meta.roomId);
     } catch (error) {
+      logger.error('Game', 'play_card failed', error);
       socket.emit('error', error.message);
     }
   });
 
-  socket.on('draw_card', async () => {
+  withRateLimit(socket, 'draw_card', 5, 5, async () => {
     const meta = socketMeta.get(socket.id);
     if (!meta?.roomId) {
       return;
@@ -400,12 +424,14 @@ io.on('connection', (socket) => {
       const result = room.engine.drawCard(socket.id);
 
       if (!result.success) {
+        logger.warn('Game', `Invalid draw by ${meta.name}: ${result.error}`);
         socket.emit('invalid_move', result.error);
         return;
       }
 
       await broadcastState(meta.roomId);
     } catch (error) {
+      logger.error('Game', 'draw_card failed', error);
       socket.emit('error', error.message);
     }
   });
@@ -416,7 +442,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    console.log(`disconnected: ${socket.id}`);
+    logger.info('Socket', `Disconnected: ${socket.id.slice(0, 8)}`);
 
     if (meta.mode === 'queue') {
       await dequeue(socket.id);
@@ -449,5 +475,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(3000, () => {
-  console.log('Server ready: http://localhost:3000');
+  logger.info('Server', 'Ready at http://localhost:3000');
 });

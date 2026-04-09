@@ -21,6 +21,7 @@ class UnoEngine {
       players: this.state.players.map((player) => ({
         id: player.id,
         name: player.name,
+        clientId: player.clientId ?? null,
         hand: player.hand.map((card) => ({
           color: card.color,
           value: card.value,
@@ -50,7 +51,7 @@ class UnoEngine {
     const nextState = engine.state;
 
     nextState.players = (data.players || []).map((playerData) => {
-      const player = new Player(playerData.id, playerData.name);
+      const player = new Player(playerData.id, playerData.name, playerData.clientId ?? null);
       player.hand = (playerData.hand || []).map(
         (cardData) => new Card(cardData.color, cardData.value)
       );
@@ -72,7 +73,7 @@ class UnoEngine {
     return engine;
   }
 
-  addPlayer(id, name) {
+  addPlayer(id, name, clientId = null) {
     if (this.state.status !== 'waiting') {
       throw new Error('Game already started');
     }
@@ -85,7 +86,7 @@ class UnoEngine {
       throw new Error('Player already joined');
     }
 
-    this.state.players.push(new Player(id, name));
+    this.state.players.push(new Player(id, name, clientId));
   }
 
   removePlayer(playerId) {
@@ -290,6 +291,7 @@ class UnoEngine {
       declaredColor: state.declaredColor,
       currentPlayerId: state.currentPlayer ? state.currentPlayer.id : null,
       winner: state.winner,
+      drawPileCount: state.drawPile.length,
       myHand: me ? me.hand : [],
       players: state.players.map((player) => ({
         id: player.id,

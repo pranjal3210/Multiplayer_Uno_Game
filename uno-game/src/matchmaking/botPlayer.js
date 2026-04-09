@@ -1,3 +1,5 @@
+const logger = require('../server/logger');
+
 class BotPlayer {
   constructor(roomId, engine) {
     this.botId = `bot_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -30,7 +32,7 @@ class BotPlayer {
       const result = this.engine.playCard(this.botId, cardIndex, declaredColor);
 
       if (result.success) {
-        console.log(`Bot played: ${card.toString()}`);
+        logger.debug('Bot', `Bot played ${card.toString()}`);
         return { acted: true, move: 'play' };
       }
       return { acted: false };
@@ -38,7 +40,7 @@ class BotPlayer {
 
     const drawResult = this.engine.drawCard(this.botId);
     if (drawResult.success) {
-      console.log('Bot drew a card');
+      logger.debug('Bot', 'Bot drew a card');
       return { acted: true, move: 'draw' };
     }
 

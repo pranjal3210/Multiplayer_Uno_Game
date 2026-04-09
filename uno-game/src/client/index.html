@@ -1,378 +1,279 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>UNO Multiplayer</title>
+  <title>UNO - Multiplayer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #171426;
-      --panel: #23203a;
-      --panel-2: #151226;
-      --text: #f5f7fb;
-      --muted: #a7acc3;
-      --accent: #ff6b35;
-      --accent-2: #f7b801;
+    :root{
+      --bg:#07111b;--panel:rgba(13,24,38,.86);--panel2:rgba(18,33,49,.96);--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);
+      --text:#edf3f8;--muted:#89a1b7;--muted2:#5e768c;--accent:#00d4ff;--accent2:#7c5cff;--good:#21c57a;--warn:#f5c518;--bad:#ff5c7a;
+      --red:#e8384f;--green:#1db954;--blue:#2d7dd2;--yellow:#f5c518;--wild:#8b5cf6;--shadow:0 24px 80px rgba(0,0,0,.4);
+      --card-w:64px;--card-h:92px;--font:"Barlow Condensed","Segoe UI",sans-serif;--body:"Barlow","Segoe UI",sans-serif;
     }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      padding: 24px;
-      font-family: "Trebuchet MS", sans-serif;
-      background:
-        radial-gradient(circle at top, rgba(247, 184, 1, 0.18), transparent 30%),
-        radial-gradient(circle at bottom right, rgba(255, 107, 53, 0.18), transparent 28%),
-        linear-gradient(160deg, var(--bg), #0d0b16 70%);
-      color: var(--text);
-    }
-
-    #app {
-      max-width: 920px;
-      margin: 0 auto;
-      background: rgba(20, 18, 34, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 20px;
-      padding: 24px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
-    }
-
-    h1, h2, h3, p { margin-top: 0; }
-    .screen { display: none; }
-    .screen.active { display: block; }
-    .row { display: flex; flex-wrap: wrap; gap: 12px; }
-    input, button, select {
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      font-size: 14px;
-    }
-    input, select {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text);
-    }
-    button {
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color: #171426;
-      border: none;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    button:disabled {
-      background: #5c6074;
-      color: #d9dbe5;
-      cursor: not-allowed;
-    }
-    .panel {
-      background: var(--panel);
-      border-radius: 16px;
-      padding: 16px;
-      margin-top: 16px;
-    }
-    .status {
-      font-size: 15px;
-      padding: 14px 16px;
-      border-left: 4px solid var(--accent);
-      background: var(--panel);
-      border-radius: 12px;
-      margin-bottom: 16px;
-    }
-    .players {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 10px;
-      margin: 14px 0;
-    }
-    .player-chip {
-      padding: 12px;
-      border-radius: 14px;
-      background: var(--panel);
-      color: var(--muted);
-    }
-    .player-chip.current {
-      color: var(--text);
-      outline: 2px solid rgba(255, 107, 53, 0.55);
-      transform: translateY(-1px);
-    }
-    .hand {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .card-btn {
-      min-width: 88px;
-      padding: 12px 10px;
-      color: white;
-      border-radius: 14px;
-      font-weight: 700;
-      text-transform: capitalize;
-    }
-    .card-btn.red { background: #d64545; }
-    .card-btn.yellow { background: #c7921f; }
-    .card-btn.green { background: #239b65; }
-    .card-btn.blue { background: #2d6cdf; }
-    .card-btn.wild { background: #2c3148; }
-    .muted { color: var(--muted); }
-    .error { color: #ff9b8a; min-height: 20px; }
-    .top-line { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;overflow:hidden;font-family:var(--body);color:var(--text);background:
+      radial-gradient(circle at 20% 10%, rgba(0,212,255,.14), transparent 28%),
+      radial-gradient(circle at 80% 15%, rgba(124,92,255,.14), transparent 25%),
+      radial-gradient(circle at 50% 100%, rgba(29,185,84,.12), transparent 26%),
+      linear-gradient(160deg,#04101b 0%,#07111b 45%,#050b12 100%);}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.35;background-image:radial-gradient(rgba(255,255,255,.08) 1px, transparent 1px);background-size:18px 18px;mask-image:linear-gradient(to bottom, rgba(0,0,0,.75), transparent 92%)}
+    ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:.25s;animation-timing-function:cubic-bezier(.19,1,.22,1)}
+    .screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transform:translateY(10px) scale(.99);transition:opacity .25s,transform .25s}
+    .screen.active{opacity:1;pointer-events:auto;transform:none}
+    .screen-game{align-items:flex-start;overflow:auto}
+    .screen-game .container{min-height:100%;display:grid;align-content:start}
+    .container{width:min(1180px,100%);margin:0 auto}
+    .glass{background:var(--panel);backdrop-filter:blur(18px);border:1px solid var(--line);box-shadow:var(--shadow)}
+    .btn{border:0;border-radius:14px;padding:14px 18px;font-family:var(--font);font-size:17px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:transform .16s,opacity .16s,box-shadow .16s}
+    .btn:hover{transform:translateY(-2px)} .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+    .btn-primary{color:#06111b;background:linear-gradient(135deg,var(--accent),#87f2ff 48%,#8aa6ff);box-shadow:0 18px 40px rgba(0,212,255,.25)}
+    .btn-secondary{color:var(--text);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+    .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 5px rgba(33,197,122,.12)}
+    .title{font-family:var(--font);font-size:clamp(56px,7vw,104px);line-height:.92;letter-spacing:-.05em;margin:0;background:linear-gradient(135deg,#fff,#acd9ff 34%,#7cffff 70%,#fff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .subtitle{margin:12px 0 0;color:var(--muted);font-size:16px;line-height:1.7;max-width:60ch}
+    .panel{padding:24px;border-radius:22px;background:var(--panel2);border:1px solid var(--line2);box-shadow:var(--shadow)}
+    .field{display:flex;flex-direction:column;gap:8px}.field label{font-family:var(--font);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)}
+    .input{width:100%;padding:15px 16px;border-radius:14px;outline:none;border:1px solid var(--line2);background:rgba(255,255,255,.05);color:var(--text);font-size:16px;font-family:var(--body)}
+    .input:focus{border-color:rgba(0,212,255,.7);box-shadow:0 0 0 4px rgba(0,212,255,.12)} .input::placeholder{color:#7190aa}
+    .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .landing,.hud{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center}
+    .hero-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:24px}
+    .feature{padding:16px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line);min-height:110px}
+    .feature-kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2);margin-bottom:8px}
+    .feature-title{font-family:var(--font);font-size:28px;font-weight:800;line-height:1;margin-bottom:8px}.feature-copy{color:var(--muted);line-height:1.5;font-size:14px}
+    .queue{display:none;margin-top:14px;padding:18px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .queue.visible{display:block}.queue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .queue-title{font-family:var(--font);font-size:14px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)}
+    .queue-status{color:var(--muted);font-size:14px}.queue-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.slot{height:44px;border-radius:999px;display:grid;place-items:center;border:1px solid var(--line2);background:rgba(255,255,255,.05);color:var(--muted2);font-weight:800}
+    .slot.filled{color:#051018;background:linear-gradient(135deg,var(--accent),#7be8ff)} .slot.bot{color:#fff;background:linear-gradient(135deg,var(--wild),#5c3ccf)}
+    .dots{display:inline-flex;gap:6px;margin-left:8px}.dots span{width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.32;animation:pulse 1.2s ease-in-out infinite}
+    .dots span:nth-child(2){animation-delay:.18s}.dots span:nth-child(3){animation-delay:.36s}@keyframes pulse{0%,80%,100%{opacity:.32;transform:scale(1)}40%{opacity:1;transform:scale(1.35)}}
+    .message{min-height:22px;font-size:14px;color:var(--bad)}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .topbar .status{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:13px;font-weight:700}.status.good{background:rgba(33,197,122,.12);border-color:rgba(33,197,122,.22);color:#9ef4ca}.status.warn{background:rgba(245,197,24,.12);border-color:rgba(245,197,24,.22);color:#ffe592}
+    .board{display:grid;grid-template-columns:110px minmax(0,1fr) 110px;grid-template-rows:auto 1fr auto;gap:16px;min-height:0}
+    .seat{display:flex;align-items:center;justify-content:center}.seat.top{grid-column:1/-1;grid-row:1}.seat.left{grid-column:1;grid-row:2}.seat.right{grid-column:3;grid-row:2}
+    .table{grid-column:2;grid-row:2;position:relative;border-radius:50%;width:min(100%,420px);min-height:clamp(300px,38vw,420px);aspect-ratio:1;background:radial-gradient(circle at 50% 50%, rgba(32,89,56,.92), rgba(8,36,20,.98) 65%), linear-gradient(145deg,#0d281b,#081c13);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 0 0 16px rgba(0,0,0,.08), 0 24px 80px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .table::before{content:"";position:absolute;inset:20px;border-radius:50%;border:1px solid rgba(255,255,255,.08)} .table-meta{position:absolute;top:18px;right:20px;display:flex;align-items:center;gap:10px;max-width:calc(100% - 40px);font-family:var(--font);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)} .turn-arrow{font-size:12px;min-width:44px;height:26px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}
+    .pile-row{display:flex;align-items:center;justify-content:center;gap:20px;position:relative;z-index:2}
+    .pile{width:var(--card-w);height:var(--card-h);border-radius:12px;position:relative;overflow:hidden;flex:0 0 auto;box-shadow:0 16px 30px rgba(0,0,0,.35)}
+    .draw-pile{cursor:pointer;background:linear-gradient(145deg,#143357,#0a1626);border:2px solid rgba(255,255,255,.16);display:grid;place-items:center}.draw-pile.disabled{opacity:.55;cursor:not-allowed;filter:saturate(.7)}.draw-label{font-family:var(--font);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.42)}
+    .card{width:var(--card-w);height:var(--card-h);border-radius:12px;position:relative;overflow:hidden;border:2px solid rgba(255,255,255,.16);box-shadow:0 12px 24px rgba(0,0,0,.35);user-select:none}
+    .card::before{content:"";position:absolute;inset:4px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+    .card.color-red{background:linear-gradient(145deg,#ff5f72,#b81d31)} .card.color-green{background:linear-gradient(145deg,#2ddc88,#0d8b47)} .card.color-blue{background:linear-gradient(145deg,#44a1ff,#1a4d8a)} .card.color-yellow{background:linear-gradient(145deg,#ffd84c,#b98300)} .card.color-wild{background:linear-gradient(145deg,#a16bff,#4b1e95)}
+    .card.playable{cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}.card.playable:hover{transform:translateY(-12px) rotate(-1deg);border-color:rgba(255,255,255,.5);box-shadow:0 20px 36px rgba(0,0,0,.5)} .card.disabled{opacity:.42;filter:grayscale(.2);cursor:not-allowed}
+    .card-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font);font-weight:900;font-size:28px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45);z-index:1}.card-value.small{font-size:16px;letter-spacing:.04em}
+    .corner{position:absolute;font-family:var(--font);font-weight:800;font-size:11px;color:rgba(255,255,255,.86);z-index:2;letter-spacing:.04em}.corner.tl{top:5px;left:6px}.corner.br{bottom:5px;right:6px;transform:rotate(180deg)}
+    .player-card{width:100%;max-width:220px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line);display:flex;align-items:center;gap:12px;position:relative;transition:transform .18s,border-color .18s,box-shadow .18s}
+    .player-card.current{border-color:rgba(0,212,255,.55);box-shadow:0 0 0 1px rgba(0,212,255,.08), 0 0 24px rgba(0,212,255,.12);background:rgba(0,212,255,.07);transform:translateY(-1px)} .player-card.disconnected{opacity:.5;filter:grayscale(.7)}
+    .avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--font);font-size:18px;font-weight:900;background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.03));border:1px solid var(--line2)}
+    .player-meta{min-width:0;display:flex;flex-direction:column;gap:4px}.player-name{font-family:var(--font);font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-sub{color:var(--muted);font-size:13px;line-height:1}
+    .back-cards{display:flex;margin-left:auto;padding-left:8px}.back-card{width:22px;height:32px;border-radius:5px;margin-left:-7px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg,#13233a,#0a1624);box-shadow:0 6px 10px rgba(0,0,0,.22)}
+    .bottom{display:grid;grid-template-columns:1fr 220px;gap:16px;align-items:end}
+    .hand-shell{padding:16px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--line);min-height:148px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+    .hand-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hand-title{font-family:var(--font);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);font-weight:800}.hand-count{color:var(--muted);font-size:14px}
+    .turn-chip{display:none;padding:7px 10px;border-radius:999px;background:rgba(0,212,255,.11);border:1px solid rgba(0,212,255,.24);color:#8cf0ff;font-family:var(--font);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:12px}.turn-chip.visible{display:inline-flex}
+    .timer{height:4px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.timer-bar{height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),#77f1ff);transition:width 1s linear,background .2s}.timer-bar.urgent{background:linear-gradient(90deg,var(--bad),#ff8ca0)}
+    .hand{display:flex;align-items:flex-end;gap:8px;padding:6px 8px 10px;overflow-x:auto;overflow-y:visible;scrollbar-width:none}.hand::-webkit-scrollbar{display:none}.hand-card-wrap{position:relative;transition:transform .18s}.hand-card-wrap:hover{transform:translateY(-10px)}
+    .actions{display:flex;flex-direction:column;gap:12px;width:100%}.ticker{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}.dot-live{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 6px rgba(33,197,122,.12)}
+    .status-pill{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:13px;font-weight:700}.status-pill.good{background:rgba(33,197,122,.12);border-color:rgba(33,197,122,.22);color:#9ef4ca}.status-pill.warn{background:rgba(245,197,24,.12);border-color:rgba(245,197,24,.22);color:#ffe592}
+    .screen-landing,.screen-lobby,.screen-reconnect,.screen-gameover{background:radial-gradient(circle at top left, rgba(0,212,255,.12), transparent 26%), radial-gradient(circle at top right, rgba(124,92,255,.12), transparent 24%)}
+    .reconnect-card,.gameover-card{width:min(560px,100%);padding:28px;border-radius:26px;text-align:center;display:flex;flex-direction:column;gap:18px;align-items:center}
+    .spinner{width:72px;height:72px;border-radius:50%;border:3px solid rgba(0,212,255,.12);border-top-color:var(--accent);animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .reconnect-title,.gameover-title{font-family:var(--font);font-size:clamp(30px,5vw,54px);line-height:.95;font-weight:900;letter-spacing:-.04em;margin:0}.reconnect-text,.gameover-text{color:var(--muted);font-size:15px;line-height:1.7}
+    .chip-grid{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.chip{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:13px;color:var(--text)}
+    .result-box{width:100%;display:none;padding:16px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid var(--line);text-align:left}.result-box.visible{display:block}.result-label{color:var(--muted2);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;font-family:var(--font)}.result-rating{margin-top:6px;font-family:var(--font);font-size:30px;font-weight:900;letter-spacing:-.03em}.result-rating.positive{color:#5fffac}.result-rating.negative{color:#ff7d93}.result-delta{margin-top:4px;color:var(--muted);font-size:14px}
+    .stats-grid{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:14px 10px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--line)}.stat-value{font-family:var(--font);font-size:22px;font-weight:900;line-height:1}.stat-label{margin-top:6px;color:var(--muted2);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+    .toast-layer{position:fixed;top:16px;right:16px;z-index:50;display:flex;flex-direction:column;gap:10px;pointer-events:none;width:min(320px,calc(100vw - 32px))}.toast{padding:12px 14px;border-radius:14px;background:rgba(10,18,27,.94);border:1px solid var(--line2);box-shadow:0 14px 40px rgba(0,0,0,.3);color:var(--text);font-size:14px;line-height:1.45;animation:toastIn .22s ease,toastOut .22s ease 2.9s forwards}.toast.info{border-left:3px solid var(--accent)}.toast.success{border-left:3px solid var(--good)}.toast.warn{border-left:3px solid var(--warn)}.toast.error{border-left:3px solid var(--bad)}@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+  .wild-modal{position:fixed;inset:0;background:rgba(4,9,14,.82);backdrop-filter:blur(14px);display:grid;place-items:center;z-index:40;opacity:0;pointer-events:none;transition:opacity .18s}.wild-modal.visible{opacity:1;pointer-events:auto}.wild-card{width:min(420px,calc(100vw - 32px));padding:22px;border-radius:24px;background:linear-gradient(180deg,rgba(15,29,44,.98),rgba(7,16,26,.98));border:1px solid var(--line2);box-shadow:var(--shadow)}.wild-title{font-family:var(--font);font-size:22px;font-weight:900;letter-spacing:-.03em;margin:0 0 8px}.wild-sub{color:var(--muted);font-size:14px;margin-bottom:16px;line-height:1.6}.color-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.color-choice{border:0;border-radius:16px;min-height:84px;color:#fff;font-family:var(--font);font-size:18px;font-weight:900;letter-spacing:.05em;cursor:pointer;box-shadow:0 16px 28px rgba(0,0,0,.26)}.color-choice.red{background:linear-gradient(145deg,#ff5f72,#b81d31)}.color-choice.green{background:linear-gradient(145deg,#2ddc88,#0d8b47)}.color-choice.blue{background:linear-gradient(145deg,#44a1ff,#1a4d8a)}.color-choice.yellow{background:linear-gradient(145deg,#ffd84c,#b98300);color:#18212c}
+    @media (max-width:980px){body{overflow:auto}.landing,.hud{grid-template-columns:1fr}.hero-cards{grid-template-columns:1fr}.board{grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto}.table{grid-column:1;grid-row:2;min-height:360px;width:100%;border-radius:28px}.seat.top{grid-column:1;grid-row:1}.seat.left{grid-column:1;grid-row:3}.seat.right{grid-column:1;grid-row:4}.bottom{grid-template-columns:1fr}.actions{width:100%}}
+    @media (max-width:640px){:root{--card-w:52px;--card-h:76px}.screen{padding:14px}.panel,.reconnect-card,.gameover-card{padding:18px}.title{font-size:clamp(46px,16vw,74px)}.topbar{flex-direction:column;align-items:flex-start}.table{min-height:300px}.player-card{max-width:none}.player-name{font-size:16px}}
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="join" class="screen active">
-      <h1>UNO Phase 4</h1>
-      <p class="muted">4 tabs kholo, same room join karo, aur real-time mein cards khelo.</p>
-      <div class="row">
-        <input id="name-input" placeholder="Player name" />
-        <input id="room-input" placeholder="Room ID" value="room1" />
-        <button id="join-btn">Join Room</button>
-        <button id="match-btn">Find Match</button>
+  <div class="toast-layer" id="toastLayer"></div>
+  <div class="wild-modal" id="wildModal" aria-hidden="true">
+    <div class="wild-card glass">
+      <div class="wild-title">Choose a color</div>
+      <div class="wild-sub">You played a wild card. Pick the color that should stay active for the next turn.</div>
+      <div class="color-grid">
+        <button class="color-choice red" onclick="chooseColor('red')">Red</button>
+        <button class="color-choice green" onclick="chooseColor('green')">Green</button>
+        <button class="color-choice blue" onclick="chooseColor('blue')">Blue</button>
+        <button class="color-choice yellow" onclick="chooseColor('yellow')">Yellow</button>
       </div>
-      <div id="queue-status" class="muted" style="margin-top: 12px;"></div>
-    </div>
-
-    <div id="lobby" class="screen">
-      <h2>Lobby</h2>
-      <p class="muted">Kam se kam 2 players chahiye. 4 tak join kar sakte hain.</p>
-      <div id="lobby-players" class="players"></div>
-      <button id="start-btn" disabled>Start Game</button>
-    </div>
-
-    <div id="game" class="screen">
-      <div id="status" class="status"></div>
-      <div class="panel">
-        <div class="top-line">
-          <div>Top card: <strong id="top-card">-</strong></div>
-          <div>Declared color: <strong id="declared-color">-</strong></div>
-        </div>
-        <div id="players-list" class="players"></div>
-      </div>
-      <div class="panel">
-        <h3>Your hand</h3>
-        <div id="my-hand" class="hand"></div>
-        <div style="margin-top: 14px;" class="row">
-          <button id="draw-btn">Draw Card</button>
-        </div>
-      </div>
-      <div id="elo-result" class="panel" style="display: none;"></div>
-      <p id="message" class="error"></p>
     </div>
   </div>
-
+  <div class="shell">
+    <section class="screen screen-landing active" id="screen-landing">
+      <div class="container landing">
+        <div>
+          <div class="badge"><span class="dot"></span> Redis-backed realtime multiplayer</div>
+          <h1 class="title">UNO<br>Multiplayer</h1>
+          <p class="subtitle">Bold lobby, live table, reconnect flow, and clean rate-limited gameplay. It should feel like a small product, not just a demo.</p>
+          <div class="hero-cards">
+            <div class="feature glass"><div class="feature-kicker">Realtime</div><div class="feature-title">Live</div><div class="feature-copy">Socket.IO sync keeps every tab aligned.</div></div>
+            <div class="feature glass"><div class="feature-kicker">Persistence</div><div class="feature-title">Redis</div><div class="feature-copy">Rooms, queue, ratings, and reconnect state survive restarts.</div></div>
+            <div class="feature glass"><div class="feature-kicker">Game feel</div><div class="feature-title">Crisp</div><div class="feature-copy">Glowy gradients, motion, and responsive layout across devices.</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="field"><label for="nameInput">Your name</label><input class="input" id="nameInput" placeholder="Enter your name" maxlength="18" autocomplete="off"></div>
+          <div class="field" style="margin-top:14px;"><label for="roomInput">Room ID</label><input class="input" id="roomInput" placeholder="room1" maxlength="32" autocomplete="off"></div>
+          <div class="row" style="margin-top:16px;"><button class="btn btn-primary" id="joinBtn" onclick="joinRoom()">Join Room</button><button class="btn btn-secondary" id="matchBtn" onclick="findMatch()">Find Match</button></div>
+          <div class="queue" id="queueBox"><div class="queue-head"><div class="queue-title">Finding Players</div><div class="queue-status" id="queueStatusText">Searching...</div></div><div class="queue-slots" id="queueSlots"><div class="slot" id="slot0">1</div><div class="slot" id="slot1">2</div><div class="slot" id="slot2">3</div><div class="slot" id="slot3">4</div></div><div class="row" style="margin-top:14px;"><span class="dot"></span><span style="color:var(--muted)">Waiting for the table to fill<span class="dots"><span></span><span></span><span></span></span></span></div></div>
+          <div class="message" id="message"></div>
+        </div>
+      </div>
+    </section>
+    <section class="screen screen-lobby" id="screen-lobby">
+      <div class="container" style="display:grid;gap:16px;">
+        <div class="topbar glass"><div class="row"><div class="badge"><span class="dot"></span> Lobby</div><div class="status-pill" id="roomMeta">Room: room1</div><div class="status-pill" id="connectionMeta">Connected</div></div><div class="row"><button class="btn btn-secondary" onclick="backToLanding()">Back</button><button class="btn btn-primary" id="startBtn" onclick="startGame()" disabled>Start Game</button></div></div>
+        <div class="panel"><div class="row" style="justify-content:space-between;margin-bottom:14px;"><div><div class="hand-title">Players</div><div class="hand-count" id="lobbyHint">Need at least 2 players to start.</div></div></div><div class="hero-cards" id="lobbyPlayers" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-top:0;"></div></div>
+      </div>
+    </section>
+    <section class="screen screen-reconnect" id="screen-reconnect">
+      <div class="container" style="display:grid;place-items:center;height:100%;">
+        <div class="reconnect-card glass"><div class="spinner" id="reconnectSpinner"></div><h2 class="reconnect-title" id="reconnectTitle">Reconnecting...</h2><p class="reconnect-text" id="reconnectText">Checking Redis for your saved game state.</p><div class="chip-grid" id="reconnectChips"></div><div class="panel" style="width:100%;display:none;" id="reconnectBanner"></div><div class="message" id="reconnectMessage"></div></div>
+      </div>
+    </section>
+    <section class="screen screen-game" id="screen-game">
+      <div class="container" style="display:grid;gap:16px;height:100%;">
+        <div class="topbar glass"><div class="row"><div class="badge"><span class="dot"></span> Live table</div><div class="status-pill" id="gameRoomMeta">Room: -</div><div class="status-pill" id="turnMeta">Waiting...</div></div><div class="row"><div class="status-pill good" id="statusPill">Playing</div><button class="btn btn-secondary" onclick="backToLanding()">Leave</button></div></div>
+        <div class="hud">
+          <div style="display:grid;grid-template-rows:auto 1fr auto;gap:16px;min-height:0;">
+            <div class="board">
+              <div class="seat top"><div class="player-card" id="seat-top"><div class="avatar" id="avatar-top">?</div><div class="player-meta"><div class="player-name" id="name-top">-</div><div class="player-sub" id="sub-top">-</div></div><div class="back-cards" id="cards-top"></div></div></div>
+              <div class="seat left"><div class="player-card" id="seat-left"><div class="avatar" id="avatar-left">?</div><div class="player-meta"><div class="player-name" id="name-left">-</div><div class="player-sub" id="sub-left">-</div></div><div class="back-cards" id="cards-left"></div></div></div>
+              <div class="table glass"><div class="table-meta"><div class="turn-arrow" id="directionArrow">CW</div><div id="declaredColorText">Color: -</div></div><div class="pile-row"><div class="pile draw-pile" id="drawPile" onclick="drawCard()"><div class="draw-count" id="drawCount">0</div><div class="draw-label">Draw</div></div><div class="pile" id="discardPile"></div></div></div>
+              <div class="seat right"><div class="player-card" id="seat-right"><div class="avatar" id="avatar-right">?</div><div class="player-meta"><div class="player-name" id="name-right">-</div><div class="player-sub" id="sub-right">-</div></div><div class="back-cards" id="cards-right"></div></div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 220px;gap:16px;align-items:end;">
+              <div class="hand-shell glass"><div class="hand-head"><div><div class="hand-title">Your Hand</div><div class="hand-count" id="handCount">0 cards</div></div><div class="turn-chip" id="turnChip">Your turn</div></div><div class="timer"><div class="timer-bar" id="timerBar"></div></div><div class="hand" id="myHand"></div></div>
+              <div class="actions glass"><button class="btn btn-primary" id="drawBtn" onclick="drawCard()">Draw Card</button><button class="btn btn-secondary" id="unoBtn" onclick="shoutUno()">UNO!</button><div class="ticker"><span class="dot-live"></span><span id="gameHint">Keep an eye on the table state.</span></div><div class="message" id="gameMessage"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="screen screen-gameover" id="screen-gameover">
+      <div class="container" style="display:grid;place-items:center;height:100%;">
+        <div class="gameover-card glass"><div class="badge"><span class="dot"></span> Game Over</div><h2 class="gameover-title" id="winnerName">Player</h2><p class="gameover-text">The table is quiet now. Here is the result of the last round.</p><div class="result-box" id="eloBox"><div class="result-label">ELO Update</div><div class="result-rating" id="eloValue">+0</div><div class="result-delta" id="eloDeltaText">Rating change</div></div><div class="stats-grid"><div class="stat"><div class="stat-value" id="statCards">0</div><div class="stat-label">Cards Played</div></div><div class="stat"><div class="stat-value" id="statTurns">0</div><div class="stat-label">Turns Taken</div></div><div class="stat"><div class="stat-value" id="statTime">0:00</div><div class="stat-label">Match Time</div></div></div><div class="row" style="justify-content:center;width:100%;"><button class="btn btn-primary" onclick="playAgain()">Play Again</button><button class="btn btn-secondary" onclick="backToLanding()">Back to Lobby</button></div></div>
+      </div>
+    </section>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    let myId = null;
-    let currentState = null;
+    const state = { myId:null, myName:'', roomId:'', currentGame:null, pendingWild:null, timer:null, timerSeconds:15, startAt:null, cardsPlayed:0, turnsTaken:0, reconnecting:false, lastElo:null, queueTimer:null };
+    const el = (id) => document.getElementById(id);
+    const ui = { toastLayer:el('toastLayer'), message:el('message'), gameMessage:el('gameMessage'), reconnectMessage:el('reconnectMessage'), queueBox:el('queueBox'), queueStatusText:el('queueStatusText'), lobbyPlayers:el('lobbyPlayers'), lobbyHint:el('lobbyHint'), roomMeta:el('roomMeta'), gameRoomMeta:el('gameRoomMeta'), connectionMeta:el('connectionMeta'), turnMeta:el('turnMeta'), statusPill:el('statusPill'), handCount:el('handCount'), myHand:el('myHand'), drawBtn:el('drawBtn'), drawCount:el('drawCount'), drawPile:el('drawPile'), turnChip:el('turnChip'), timerBar:el('timerBar'), discardPile:el('discardPile'), declaredColorText:el('declaredColorText'), directionArrow:el('directionArrow'), winnerName:el('winnerName'), eloBox:el('eloBox'), eloValue:el('eloValue'), eloDeltaText:el('eloDeltaText'), statCards:el('statCards'), statTurns:el('statTurns'), statTime:el('statTime'), reconnectSpinner:el('reconnectSpinner'), reconnectTitle:el('reconnectTitle'), reconnectText:el('reconnectText'), reconnectBanner:el('reconnectBanner'), reconnectChips:el('reconnectChips'), wildModal:el('wildModal'), gameHint:el('gameHint'), startBtn:el('startBtn') };
+    function toast(msg,t='info'){const n=document.createElement('div');n.className='toast '+t;n.textContent=msg;ui.toastLayer.appendChild(n);setTimeout(()=>n.remove(),3200)}
+    function switchScreen(id){const go=()=>document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));document.startViewTransition?document.startViewTransition(go):go()}
+    function session(){try{const s=JSON.parse(sessionStorage.getItem('uno_session')||'null');if(!s||Date.now()-s.ts>7200000)return null;return s}catch{return null}}
+    function saveSession(name,roomId){sessionStorage.setItem('uno_session',JSON.stringify({name,roomId,ts:Date.now()}))}
+    function clearSession(){sessionStorage.removeItem('uno_session')}
+    function clientId(){let id=sessionStorage.getItem('uno_client_id');if(!id){id='tab_'+Math.random().toString(36).slice(2,10);sessionStorage.setItem('uno_client_id',id)}return id}
+    function setMsg(node,text,color=''){node.textContent=text||'';node.style.color=color}
+    function cardLabel(card){return ({skip:'SKIP',reverse:'REV',draw2:'+2',wild:'WILD',wild_draw4:'+4'})[card.value]||card.value}
+    function cardClass(card){return 'color-'+(card?.color||'wild')}
+    function canPlay(card,top,declared){if(!card||!top)return true;if(card.color==='wild')return true;const color=declared||top.color;return card.color===color||card.value===top.value}
+    function isMyTurn(gs){return gs?.currentPlayerId===state.myId}
+    function showModal(v){ui.wildModal.classList.toggle('visible',v);ui.wildModal.setAttribute('aria-hidden',String(!v))}
+    function buildCard(card,opts={}){const classes=['card',cardClass(card)];if(opts.playable)classes.push('playable');if(opts.disabled)classes.push('disabled');const label=cardLabel(card);const small=label.length>3?' small':'';return `<div class="${classes.join(' ')}"${opts.playable?` onclick="playCard(${opts.index})"`:''}><div class="corner tl">${label}</div><div class="card-value${small}">${label}</div><div class="corner br">${label}</div></div>`}
+    function renderLobby(players,canStart,status){ui.lobbyPlayers.innerHTML=(players||[]).map(p=>`<div class="feature glass"><div class="row" style="justify-content:space-between"><div class="badge" style="margin-bottom:8px"><span class="dot"></span> Player</div><div class="status-pill">${String(p.id||'').slice(0,6)}</div></div><div class="row"><div class="avatar">${(p.name||'?').charAt(0).toUpperCase()}</div><div><div class="player-name">${p.name||'-'}</div><div class="player-sub">Ready to play</div></div></div></div>`).join('')||'<div class="feature glass">No players yet.</div>'; ui.startBtn.disabled=!canStart||status==='playing'; ui.startBtn.textContent=status==='playing'?'Game Started':'Start Game'; ui.lobbyHint.textContent=status==='playing'?'Game already started. Waiting for sync.':(canStart?'Enough players are here. Start whenever you are ready.':'Need at least 2 players to start.'); ui.roomMeta.textContent='Room: '+(state.roomId||'room1'); ui.connectionMeta.textContent=socket.connected?'Connected':'Offline'}
+    function renderSeat(seat,player,current,totalPlayers){const seatEl=el('seat-'+seat), avatar=el('avatar-'+seat), name=el('name-'+seat), sub=el('sub-'+seat), cards=el('cards-'+seat); if(!player){seatEl.classList.remove('current','disconnected');avatar.textContent='+';name.textContent='Open seat';sub.textContent=totalPlayers>=2?'Waiting for the next player':'Waiting for 1 more player';cards.innerHTML='';return} seatEl.classList.toggle('current',player.id===current); seatEl.classList.toggle('disconnected',player.connected===false); avatar.textContent=(player.name||'?').charAt(0).toUpperCase(); name.textContent=player.name||'-'; sub.textContent=player.connected===false?'Disconnected':(player.id===current?'Playing now':`${player.cardCount||0} cards`); cards.innerHTML=Array.from({length:Math.min(player.cardCount||0,8)},(_,i)=>'<div class="back-card" style="margin-left:'+(i===0?0:-7)+'px"></div>').join('')}
+    function renderDiscard(card){ui.discardPile.innerHTML=card?buildCard(card,{disabled:true}):''}
+    function resetTimer(){clearInterval(state.timer);state.timerSeconds=15;ui.timerBar.style.width='100%';ui.timerBar.classList.remove('urgent');state.timer=setInterval(()=>{state.timerSeconds--;const pct=Math.max(0,(state.timerSeconds/15)*100);ui.timerBar.style.width=pct+'%';if(state.timerSeconds<=5)ui.timerBar.classList.add('urgent');if(state.timerSeconds<=0){clearInterval(state.timer);if(isMyTurn(state.currentGame)){toast('Time up. Drawing a card...','warn');drawCard()}}},1000)}
+    function clearTimer(){clearInterval(state.timer);state.timer=null}
+    function renderGame(gs){
+      if(!gs)return;
+      state.currentGame=gs;
+      const myTurn=isMyTurn(gs);
+      const currentPlayer=(gs.players||[]).find(p=>p.id===gs.currentPlayerId)?.name||'next player';
+      const playerCount=(gs.players||[]).length;
+      const openSeats=Math.max(0,4-playerCount);
 
-    const screens = {
-      join: document.getElementById('join'),
-      lobby: document.getElementById('lobby'),
-      game: document.getElementById('game'),
-    };
+      if(ui.gameRoomMeta)ui.gameRoomMeta.textContent='Room: '+(state.roomId||'-');
+      ui.turnMeta.textContent=gs.status==='finished'
+        ?'Finished'
+        :(myTurn
+          ?'Your turn'
+          :(openSeats>0
+            ?`Waiting for ${openSeats} player${openSeats===1?'':'s'}`
+            :'Waiting for '+currentPlayer));
+      ui.statusPill.textContent=gs.status==='finished'?'Finished':'Playing';
+      ui.statusPill.className='status-pill '+(gs.status==='finished'?'warn':'good');
+      ui.turnChip.classList.toggle('visible',gs.status==='playing'&&myTurn);
+      ui.drawBtn.disabled=!(gs.status==='playing'&&myTurn);
+      if(ui.drawPile) ui.drawPile.classList.toggle('disabled',!(gs.status==='playing'&&myTurn));
+      ui.directionArrow.textContent=gs.direction===-1?'CCW':'CW';
+      if(ui.drawCount)ui.drawCount.textContent=String(gs.drawPileCount ?? 0);
+      ui.declaredColorText.textContent='Color: '+(gs.declaredColor||gs.topCard?.color||'-');
+      ui.gameHint.textContent=gs.status==='finished'
+        ?'Round complete.'
+        :(myTurn
+          ?`Play a matching card, or draw one if needed. ${gs.drawPileCount ?? 0} cards left in deck.`
+          :(openSeats>0
+            ?`Waiting for ${openSeats} player${openSeats===1?'':'s'} to join.`
+            :'Waiting for '+currentPlayer+' to take their turn.'));
 
-    const joinBtn = document.getElementById('join-btn');
-    const matchBtn = document.getElementById('match-btn');
-    const startBtn = document.getElementById('start-btn');
-    const drawBtn = document.getElementById('draw-btn');
+      renderDiscard(gs.topCard||null);
 
-    window.addEventListener('load', () => {
-      const savedName = localStorage.getItem('uno_name');
-      const savedRoom = localStorage.getItem('uno_room');
+      const hand=gs.myHand||[];
+      ui.handCount.textContent=hand.length+' card'+(hand.length===1?'':'s');
+      ui.myHand.innerHTML=hand.map((c,i)=>{
+        const playable=gs.status==='playing'&&myTurn&&canPlay(c,gs.topCard,gs.declaredColor);
+        return `<div class="hand-card-wrap">${buildCard(c,{index:i,playable,disabled:!playable})}</div>`;
+      }).join('');
 
-      if (savedName) {
-        document.getElementById('name-input').value = savedName;
+      const others=(gs.players||[]).filter(p=>p.id!==state.myId);
+      renderSeat('top',others[0],gs.currentPlayerId,playerCount);
+      renderSeat('left',others[1],gs.currentPlayerId,playerCount);
+      renderSeat('right',others[2],gs.currentPlayerId,playerCount);
+
+      if(gs.status==='playing'){
+        if(!state.startAt)state.startAt=Date.now();
+        resetTimer();
+        switchScreen('screen-game');
       }
-
-      if (savedRoom) {
-        document.getElementById('room-input').value = savedRoom;
+      if(gs.status==='finished'){
+        clearTimer();
+        showGameOver(gs);
       }
-    });
-
-    function showScreen(name) {
-      Object.entries(screens).forEach(([key, node]) => {
-        node.classList.toggle('active', key === name);
-      });
     }
-
-    function cardLabel(card) {
-      return card ? card.color + ' ' + card.value : '-';
-    }
-
-    socket.on('connect', () => {
-      myId = socket.id;
-      showScreen('join');
-    });
-
-    joinBtn.addEventListener('click', () => {
-      joinRoom();
-    });
-
-    matchBtn.addEventListener('click', () => {
-      findMatch();
-    });
-
-    startBtn.addEventListener('click', () => {
-      socket.emit('start_game');
-    });
-
-    drawBtn.addEventListener('click', () => {
-      socket.emit('draw_card');
-    });
-
-    function getPlayerName() {
-      return document.getElementById('name-input').value || 'Player';
-    }
-
-    function getRoomId() {
-      return document.getElementById('room-input').value || 'room1';
-    }
-
-    function joinRoom() {
-      const playerName = getPlayerName();
-      const roomId = getRoomId();
-
-      localStorage.setItem('uno_name', playerName);
-      localStorage.setItem('uno_room', roomId);
-      document.getElementById('queue-status').textContent = '';
-
-      socket.emit('join_room', { roomId, playerName });
-      showScreen('lobby');
-    }
-
-    function findMatch() {
-      const playerName = getPlayerName();
-      localStorage.setItem('uno_name', playerName);
-      document.getElementById('queue-status').textContent = 'Matchmaking chal rahi hai...';
-      socket.emit('find_match', { playerName });
-      showScreen('join');
-    }
-
-    socket.on('room_update', ({ players, canStart }) => {
-      document.getElementById('lobby-players').innerHTML = players
-        .map((player) => '<div class="player-chip">' + player.name + '</div>')
-        .join('');
-      startBtn.disabled = !canStart;
-
-      if (!currentState) {
-        showScreen('lobby');
-      }
-    });
-
-    socket.on('state_update', (state) => {
-      currentState = state;
-      showScreen('game');
-      document.getElementById('queue-status').textContent = '';
-
-      const isMyTurn = state.currentPlayerId === myId;
-      const finished = state.status === 'finished';
-
-      document.getElementById('status').textContent = finished
-        ? (state.winner === myId ? 'Game over: tum jeete.' : 'Game over: kisi aur ne jeeta.')
-        : (isMyTurn ? 'Ab tumhari turn hai.' : 'Dusre player ki turn chal rahi hai.');
-
-      document.getElementById('top-card').textContent = cardLabel(state.topCard);
-      document.getElementById('declared-color').textContent = state.declaredColor || '-';
-
-      document.getElementById('players-list').innerHTML = state.players
-        .map((player) => {
-          const chipClass = player.isCurrentTurn ? 'player-chip current' : 'player-chip';
-          return '<div class="' + chipClass + '">' +
-            '<strong>' + player.name + '</strong><br />' +
-            '<span>' + player.cardCount + ' cards</span>' +
-            '</div>';
-        })
-        .join('');
-
-      document.getElementById('my-hand').innerHTML = state.myHand
-        .map((card, index) => {
-          const colorClass = card.color === 'wild' ? 'wild' : card.color;
-          const disabled = !isMyTurn || finished ? 'disabled' : '';
-          return '<button class="card-btn ' + colorClass + '" onclick="playCard(' + index + ')" ' + disabled + '>' +
-            cardLabel(card) +
-            '</button>';
-        })
-        .join('');
-
-      drawBtn.disabled = !isMyTurn || finished;
-    });
-
-    window.playCard = function playCard(index) {
-      const card = currentState.myHand[index];
-      let declaredColor = null;
-
-      if (card.color === 'wild') {
-        declaredColor = window.prompt('Choose a color: red, yellow, green, blue');
-        if (!declaredColor) {
-          return;
-        }
-
-        declaredColor = declaredColor.trim().toLowerCase();
-        if (!['red', 'yellow', 'green', 'blue'].includes(declaredColor)) {
-          document.getElementById('message').textContent = 'Choose a valid color.';
-          return;
-        }
-      }
-
-      socket.emit('play_card', { cardIndex: index, declaredColor });
-    };
-
-    socket.on('invalid_move', (message) => {
-      document.getElementById('message').textContent = 'Invalid move: ' + message;
-      window.setTimeout(() => {
-        document.getElementById('message').textContent = '';
-      }, 2500);
-    });
-
-    socket.on('queue_update', ({ position, message }) => {
-      document.getElementById('queue-status').textContent =
-        'Queue position: ' + position + ' - ' + message;
-    });
-
-    socket.on('match_found', ({ roomId, players }) => {
-      document.getElementById('queue-status').textContent =
-        'Match mila! Room: ' + roomId + ' - Players: ' + players.join(', ');
-      showScreen('lobby');
-    });
-
-    socket.on('reconnected', ({ message }) => {
-      document.getElementById('queue-status').textContent = message;
-    });
-
-    socket.on('elo_update', ({ oldRating, newRating, delta, isWinner }) => {
-      const box = document.getElementById('elo-result');
-      const sign = delta >= 0 ? '+' : '';
-      const color = delta >= 0 ? '#1D9E75' : '#E24B4A';
-      box.style.display = 'block';
-      box.innerHTML =
-        '<div style="font-size:13px; color:#aaa;">' +
-        (isWinner ? 'Winner' : 'Result') +
-        '</div>' +
-        '<div style="font-size:20px; font-weight:500; margin:4px 0;">' +
-        oldRating +
-        ' -> <span style="color:' +
-        color +
-        '">' +
-        newRating +
-        '</span>' +
-        '</div>' +
-        '<div style="font-size:13px; color:' +
-        color +
-        ';">' +
-        sign +
-        delta +
-        ' ELO</div>';
-    });
-
-    socket.on('error', (message) => {
-      window.alert('Error: ' + message);
-      if (!currentState) {
-        showScreen('join');
-      }
-    });
+    function showReconnect(){state.reconnecting=true;ui.reconnectSpinner.style.display='block';ui.reconnectBanner.style.display='none';ui.reconnectTitle.textContent='Reconnecting...';ui.reconnectText.textContent='Checking Redis for your saved game state.';ui.reconnectChips.innerHTML='';setMsg(ui.reconnectMessage,'');switchScreen('screen-reconnect')}
+    function successReconnect(){ui.reconnectSpinner.style.display='none';ui.reconnectTitle.textContent='Back in the game';ui.reconnectText.textContent='Your room and hand were recovered from Redis.';ui.reconnectBanner.style.display='block';ui.reconnectChips.innerHTML=['Room restored','Turn order intact','Discard pile restored','ELO preserved'].map(t=>`<div class="chip">✓ ${t}</div>`).join('');state.reconnecting=false}
+    function showGameOver(gs){clearTimer();const elapsed=state.startAt?Math.max(0,Math.floor((Date.now()-state.startAt)/1000)):0;const mins=Math.floor(elapsed/60),secs=String(elapsed%60).padStart(2,'0');const winner=(gs.players||[]).find(p=>p.id===gs.winner); ui.winnerName.textContent=winner?.name||state.myName||'Winner'; ui.statCards.textContent=state.cardsPlayed; ui.statTurns.textContent=state.turnsTaken; ui.statTime.textContent=`${mins}:${secs}`; if(state.lastElo){ui.eloBox.classList.add('visible');ui.eloValue.textContent=(state.lastElo.delta>=0?'+':'')+state.lastElo.delta;ui.eloValue.className='result-rating '+(state.lastElo.delta>=0?'positive':'negative');ui.eloDeltaText.textContent=`${state.lastElo.oldRating} -> ${state.lastElo.newRating} ELO`} else ui.eloBox.classList.remove('visible'); switchScreen('screen-gameover')}
+    function joinRoom(){const name=el('nameInput').value.trim()||'Player';const roomId=el('roomInput').value.trim()||'room1';state.myName=name;state.roomId=roomId;state.startAt=null;state.cardsPlayed=0;state.turnsTaken=0;state.lastElo=null;saveSession(name,roomId);ui.queueBox.classList.remove('visible');setMsg(ui.message,'');socket.emit('join_room',{roomId,playerName:name,clientId:clientId()});switchScreen('screen-lobby')}
+    function findMatch(){const name=el('nameInput').value.trim()||'Player';state.myName=name;state.roomId='';state.startAt=null;state.cardsPlayed=0;state.turnsTaken=0;state.lastElo=null;saveSession(name,'');ui.queueBox.classList.add('visible');ui.queueStatusText.textContent='Searching...';socket.emit('find_match',{playerName:name,clientId:clientId()});switchScreen('screen-landing')}
+    function startGame(){ui.startBtn.disabled=true; ui.startBtn.textContent='Starting...'; socket.emit('start_game')}
+    function backToLanding(){clearTimer();state.currentGame=null;state.roomId='';state.pendingWild=null;state.startAt=null;state.lastElo=null;showModal(false);switchScreen('screen-landing')}
+    function drawCard(){if(!state.currentGame||state.currentGame.status!=='playing'||!isMyTurn(state.currentGame))return;state.turnsTaken++;socket.emit('draw_card')}
+    function shoutUno(){socket.emit('game:uno');toast('UNO!','success')}
+    function playCard(index){const hand=state.currentGame?.myHand||[];const card=hand[index];if(!card)return;if(card.color==='wild'){state.pendingWild=index;showModal(true);return} emitPlay(index,null)}
+    function chooseColor(color){showModal(false);if(state.pendingWild===null)return;emitPlay(state.pendingWild,color);state.pendingWild=null}
+    function emitPlay(cardIndex,declaredColor){if(!state.currentGame||!isMyTurn(state.currentGame))return;state.cardsPlayed++;state.turnsTaken++;socket.emit('play_card',{cardIndex,declaredColor})}
+    function applyRateLimit(event,retryAfter){const sec=retryAfter||5;const msg=`Slow down. ${event} is rate-limited. Try again in ${sec}s.`;setMsg(ui.message,msg,'#ff8c9f');setMsg(ui.gameMessage,msg,'#ff8c9f');document.querySelectorAll('.card.playable,#drawBtn,#startBtn').forEach(b=>b.disabled=true);clearTimeout(state.queueTimer);state.queueTimer=setTimeout(()=>{setMsg(ui.message,'');setMsg(ui.gameMessage,'');document.querySelectorAll('.card.playable,#drawBtn,#startBtn').forEach(b=>b.disabled=false)},sec*1000)}
+    function renderSession(s){if(!s)return;el('nameInput').value=s.name||'';if(s.roomId)el('roomInput').value=s.roomId}
+    socket.on('connect',()=>{state.myId=socket.id;ui.connectionMeta.textContent='Connected';const s=session();renderSession(s);if(s?.roomId){state.roomId=s.roomId;showReconnect();socket.emit('join_room',{roomId:s.roomId,playerName:s.name,clientId:clientId()});setTimeout(()=>{if(state.reconnecting){ui.reconnectSpinner.style.display='none';ui.reconnectTitle.textContent='Session expired';ui.reconnectText.textContent='The saved room could not be restored.';setMsg(ui.reconnectMessage,'Try joining again.','#ff8c9f')}},5000)} else switchScreen('screen-landing')})
+    socket.on('disconnect',()=>{ui.connectionMeta.textContent='Disconnected';toast('Connection lost. Waiting for socket reconnect.','warn')})
+    socket.on('room_update',({players,canStart,status})=>{renderLobby(players||[],canStart,status);switchScreen('screen-lobby')})
+    socket.on('queue_update',({position,message})=>{ui.queueBox.classList.add('visible');ui.queueStatusText.textContent=message||'Searching...';for(let i=0;i<4;i++){const slot=el('slot'+i);if(!slot)continue;if(i<(position||0)){slot.classList.add('filled');slot.textContent='✓'}else{slot.classList.remove('filled','bot');slot.textContent=String(i+1)}}})
+    socket.on('match_found',({roomId,players})=>{state.roomId=roomId;saveSession(state.myName||el('nameInput').value.trim()||'Player',roomId);ui.roomMeta.textContent='Room: '+roomId;ui.queueStatusText.textContent='Match found: '+(players||[]).join(', ');toast('Match found. Loading the table...','success');switchScreen('screen-lobby')})
+    socket.on('reconnected',({message})=>{successReconnect();setMsg(ui.reconnectMessage,message||'Welcome back!','#9ef4ca');toast(message||'Welcome back!','success')})
+    socket.on('state_update',(gs)=>{state.currentGame=gs;state.roomId=state.roomId||el('roomInput').value.trim()||'room1';if(!state.startAt)state.startAt=Date.now();if(state.reconnecting)successReconnect();renderGame(gs)})
+    socket.on('invalid_move',(message)=>{const msg='Invalid move: '+(message||'Move rejected');setMsg(ui.message,msg,'#ff8c9f');setMsg(ui.gameMessage,msg,'#ff8c9f');toast(msg,'error')})
+    socket.on('rate_limited',({event,retryAfter})=>{applyRateLimit(event,retryAfter);toast('Slow down. '+event+' is rate limited.','warn')})
+    socket.on('elo_update',({oldRating,newRating,delta})=>{state.lastElo={oldRating,newRating,delta};ui.eloBox.classList.add('visible');ui.eloValue.textContent=(delta>=0?'+':'')+delta;ui.eloValue.className='result-rating '+(delta>=0?'positive':'negative');ui.eloDeltaText.textContent=`${oldRating} -> ${newRating} ELO`})
+    socket.on('error',(message)=>{const text=typeof message==='string'?message:(message?.message||'Something went wrong.');setMsg(ui.message,text,'#ff8c9f');setMsg(ui.gameMessage,text,'#ff8c9f');toast(text,'error')})
+    function playAgain(){clearSession();state.currentGame=null;state.roomId='';state.startAt=null;state.cardsPlayed=0;state.turnsTaken=0;state.lastElo=null;state.pendingWild=null;ui.eloBox.classList.remove('visible');setMsg(ui.message,'');setMsg(ui.gameMessage,'');switchScreen('screen-landing')}
+    window.joinRoom=joinRoom;window.findMatch=findMatch;window.startGame=startGame;window.backToLanding=backToLanding;window.drawCard=drawCard;window.shoutUno=shoutUno;window.playCard=playCard;window.chooseColor=chooseColor;window.playAgain=playAgain;
+    window.addEventListener('keydown',(e)=>{if(e.key==='Escape')showModal(false)}); el('nameInput').addEventListener('keydown',(e)=>{if(e.key==='Enter')joinRoom()}); el('roomInput').addEventListener('keydown',(e)=>{if(e.key==='Enter')joinRoom()});
+    window.addEventListener('load',()=>{renderSession(session());if(!session())switchScreen('screen-landing')});
   </script>
 </body>
 </html>
+    .draw-count{position:absolute;top:8px;right:8px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-family:var(--font);font-size:11px;font-weight:900;color:#dff9ff;z-index:2}
