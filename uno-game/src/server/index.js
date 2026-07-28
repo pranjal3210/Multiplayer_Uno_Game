@@ -8,6 +8,9 @@ const { saveState, loadState, setPlayerRoom, getPlayerRoom } = require('./gameSt
 const { enqueue, dequeue, tryMatch, getQueueLength } = require('../matchmaking/queue');
 const { BotPlayer } = require('../matchmaking/botPlayer');
 const { updateRatingsMultiplayer } = require('../ratings/elo');
+const { verifyToken } = require('./auth/token');
+const { authRouter } = require('./routes/authRoutes');
+const { findUserById } = require('./models/userStore');
 const {
   getLeaderboard,
   getMultipleRatings,
@@ -27,6 +30,8 @@ const clientDist = path.join(process.cwd(), 'src/client/dist');
 const clientSource = path.join(process.cwd(), 'src/client');
 const clientRoot = fs.existsSync(path.join(clientDist, 'index.html')) ? clientDist : clientSource;
 
+app.use(express.json());
+app.use('/api/auth', authRouter);
 app.use(express.static(clientRoot));
 
 app.get('/leaderboard', async (req, res) => {
@@ -127,11 +132,13 @@ async function handleGameOver(roomId, engineJSON) {
     return;
   }
 
-  const ratingsByName = await getMultipleRatings(humanPlayers.map((player) => player.name));
+  const ratingsByUser = await getMultipleRatings(
+    humanPlayers.map((player) => player.clientId || player.name)
+  );
   const playersForElo = humanPlayers.map((player) => ({
     id: player.id,
     name: player.name,
-    rating: ratingsByName[player.name],
+    rating: ratingsByUser[player.clientId || player.name],
     isWinner: player.id === engine.state.winner,
   }));
 
@@ -143,7 +150,7 @@ async function handleGameOver(roomId, engineJSON) {
       continue;
     }
 
-    await setRating(player.name, result.newRating);
+    await setRating(player.clientId || player.name, result.newRating);
     await updateLeaderboard(player.name, result.newRating);
 
     io.to(player.id).emit('elo_update', {
@@ -301,13 +308,48 @@ async function startMatchFromQueue(ioInstance, match) {
   await broadcastState(roomId);
 }
 
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+
+  try {
+    if (!token) {
+      throw new Error('Missing token');
+    }
+
+    const payload = verifyToken(token);
+    const user = await findUserById(payload.sub);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    socket.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      rating: user.rating,
+    };
+    next();
+  } catch {
+    next(new Error('Unauthorized'));
+  }
+});
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+app.use((error, req, res, next) => {
+  logger.error('HTTP', 'Request failed', error);
+  res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
+});
+
 io.on('connection', (socket) => {
   logger.info('Socket', `Connected: ${socket.id.slice(0, 8)}`);
 
-  withRateLimit(socket, 'join_room', 5, 10, async ({ roomId, playerName, clientId } = {}) => {
+  withRateLimit(socket, 'join_room', 5, 10, async ({ roomId } = {}) => {
     const safeRoomId = safeString(roomId, 'room1');
-    const safeName = safeString(playerName, 'Player');
-    const safeClientId = safeString(clientId, socket.id);
+    const safeName = socket.user.username;
+    const safeClientId = socket.user.id;
 
     try {
       const room = await getOrCreateRoom(safeRoomId, 'manual');
@@ -342,9 +384,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  withRateLimit(socket, 'find_match', 3, 10, async ({ playerName, clientId } = {}) => {
-    const safeName = safeString(playerName, 'Player');
-    const safeClientId = safeString(clientId, socket.id);
+  withRateLimit(socket, 'find_match', 3, 10, async () => {
+    const safeName = socket.user.username;
+    const safeClientId = socket.user.id;
 
     try {
       socketMeta.set(socket.id, {

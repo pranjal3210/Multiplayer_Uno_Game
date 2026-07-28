@@ -183,6 +183,18 @@ body::before {
 .input::placeholder { color: #7190aa; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .landing, .hud { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; align-items: center; }
+.auth-layout { display: grid; grid-template-columns: 1.1fr .9fr; gap: 24px; align-items: center; }
+.auth-panel { display: grid; gap: 14px; }
+.profile-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+}
 .hero-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
 .feature {
   padding: 16px;
@@ -760,7 +772,7 @@ body::before {
 
 @media (max-width: 980px) {
   body { overflow: auto; }
-  .landing, .hud { grid-template-columns: 1fr; }
+  .landing, .hud, .auth-layout { grid-template-columns: 1fr; }
   .hero-cards { grid-template-columns: 1fr; }
   .board {
     grid-template-columns: 1fr;

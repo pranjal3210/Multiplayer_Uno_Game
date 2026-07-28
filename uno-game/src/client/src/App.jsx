@@ -2,13 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import ToastLayer from './components/ToastLayer';
 import WildColorModal from './components/WildColorModal';
+import { useAuth } from './context/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import LandingScreen from './screens/LandingScreen';
 import LobbyScreen from './screens/LobbyScreen';
 import ReconnectScreen from './screens/ReconnectScreen';
 import GameScreen from './screens/GameScreen';
 import GameOverScreen from './screens/GameOverScreen';
 
-const DEFAULT_FORM = { name: 'Player', roomId: 'room1' };
+const DEFAULT_FORM = { name: '', roomId: 'room1' };
 const SCREEN = {
   landing: 'landing',
   lobby: 'lobby',
@@ -37,16 +40,8 @@ function clearSession() {
   sessionStorage.removeItem('uno_session');
 }
 
-function clientId() {
-  let id = sessionStorage.getItem('uno_client_id');
-  if (!id) {
-    id = `tab_${Math.random().toString(36).slice(2, 10)}`;
-    sessionStorage.setItem('uno_client_id', id);
-  }
-  return id;
-}
-
 export default function App() {
+  const { token, user, loading, login, register, logout, setUser } = useAuth();
   const socketRef = useRef(null);
   const timersRef = useRef({ timer: null, queue: null, reconnect: null });
   const formRef = useRef(DEFAULT_FORM);
@@ -54,6 +49,8 @@ export default function App() {
   const startAtRef = useRef(null);
 
   const [screen, setScreen] = useState(SCREEN.landing);
+  const [authScreen, setAuthScreen] = useState('login');
+  const [authMessage, setAuthMessage] = useState('');
   const [connected, setConnected] = useState(false);
   const [myId, setMyId] = useState(null);
   const [form, setForm] = useState(() => loadSession() || DEFAULT_FORM);
@@ -194,7 +191,7 @@ export default function App() {
   }
 
   function joinRoom() {
-    const name = form.name.trim() || 'Player';
+    const name = user?.username || 'Player';
     const nextRoomId = form.roomId.trim() || 'room1';
     setForm({ name, roomId: nextRoomId });
     setRoomId(nextRoomId);
@@ -211,14 +208,12 @@ export default function App() {
     showMessage('');
     socketRef.current?.emit('join_room', {
       roomId: nextRoomId,
-      playerName: name,
-      clientId: clientId(),
     });
     setScreen(SCREEN.lobby);
   }
 
   function findMatch() {
-    const name = form.name.trim() || 'Player';
+    const name = user?.username || 'Player';
     setForm((current) => ({ ...current, name }));
     setRoomId('');
     setRoomPlayers([]);
@@ -232,7 +227,7 @@ export default function App() {
     setQueue({ visible: true, position: 0, message: 'Searching...' });
     saveSession(name, '');
     showMessage('');
-    socketRef.current?.emit('find_match', { playerName: name, clientId: clientId() });
+    socketRef.current?.emit('find_match');
   }
 
   function startGame() {
@@ -266,8 +261,48 @@ export default function App() {
     setScreen(SCREEN.landing);
   }
 
+  async function submitLogin(payload) {
+    try {
+      setAuthMessage('');
+      await login(payload);
+    } catch (error) {
+      setAuthMessage(error.message);
+    }
+  }
+
+  async function submitRegister(payload) {
+    try {
+      setAuthMessage('');
+      await register(payload);
+    } catch (error) {
+      setAuthMessage(error.message);
+    }
+  }
+
+  function handleLogout() {
+    socketRef.current?.disconnect();
+    clearSession();
+    clearTimer();
+    setGame(null);
+    setRoomId('');
+    setMessage('');
+    setGameMessage('');
+    setScreen(SCREEN.landing);
+    logout();
+  }
+
   useEffect(() => {
-    const socketInstance = io();
+    if (user?.username) {
+      setForm((current) => ({ ...current, name: user.username }));
+    }
+  }, [user?.username]);
+
+  useEffect(() => {
+    if (!token || !user) {
+      return undefined;
+    }
+
+    const socketInstance = io({ auth: { token } });
     socketRef.current = socketInstance;
 
     socketInstance.on('connect', () => {
@@ -275,15 +310,13 @@ export default function App() {
       setMyId(socketInstance.id);
 
       const saved = loadSession();
-      if (saved) setForm({ name: saved.name || 'Player', roomId: saved.roomId || '' });
+      if (saved) setForm({ name: user.username, roomId: saved.roomId || '' });
 
       if (saved?.roomId) {
         setRoomId(saved.roomId);
         showReconnect();
         socketInstance.emit('join_room', {
           roomId: saved.roomId,
-          playerName: saved.name,
-          clientId: clientId(),
         });
       } else {
         setScreen(SCREEN.landing);
@@ -308,7 +341,7 @@ export default function App() {
 
     socketInstance.on('match_found', ({ roomId: nextRoomId, players }) => {
       setRoomId(nextRoomId);
-      saveSession(formRef.current.name || 'Player', nextRoomId);
+      saveSession(user.username, nextRoomId);
       setQueue((current) => ({ ...current, message: `Match found: ${(players || []).join(', ')}` }));
       pushToast('Match found. Loading the table...', 'success');
       setScreen(SCREEN.lobby);
@@ -351,6 +384,16 @@ export default function App() {
 
     socketInstance.on('elo_update', ({ oldRating, newRating, delta }) => {
       setLastElo({ oldRating, newRating, delta });
+      setUser((current) => (current ? { ...current, rating: newRating } : current));
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      const text = error?.message === 'Unauthorized' ? 'Login expired. Please sign in again.' : 'Unable to connect.';
+      showMessage(text);
+      pushToast(text, 'error');
+      if (error?.message === 'Unauthorized') {
+        handleLogout();
+      }
     });
 
     socketInstance.on('uno_called', ({ playerId, playerName }) => {
@@ -373,7 +416,7 @@ export default function App() {
       clearTimer();
       socketInstance.disconnect();
     };
-  }, []);
+  }, [token, user?.id]);
 
   useEffect(() => {
     if (!game || game.status !== 'playing' || game.currentPlayerId !== myId) {
@@ -405,6 +448,36 @@ export default function App() {
     }
   }, [game?.status]);
 
+  if (loading) {
+    return (
+      <div className="shell">
+        <ReconnectScreen title="Signing in..." text="Restoring your account session." chips={[]} message="" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return authScreen === 'register' ? (
+      <Register
+        message={authMessage}
+        onSubmit={submitRegister}
+        onSwitch={() => {
+          setAuthMessage('');
+          setAuthScreen('login');
+        }}
+      />
+    ) : (
+      <Login
+        message={authMessage}
+        onSubmit={submitLogin}
+        onSwitch={() => {
+          setAuthMessage('');
+          setAuthScreen('register');
+        }}
+      />
+    );
+  }
+
   return (
     <>
       <ToastLayer toasts={toasts} />
@@ -416,10 +489,11 @@ export default function App() {
             connected={connected}
             queue={queue}
             message={message}
-            onNameChange={(name) => setForm((current) => ({ ...current, name }))}
             onRoomChange={(roomIdValue) => setForm((current) => ({ ...current, roomId: roomIdValue }))}
             onJoinRoom={joinRoom}
             onFindMatch={findMatch}
+            user={user}
+            onLogout={handleLogout}
           />
         )}
         {currentScreen === SCREEN.lobby && (
@@ -430,8 +504,10 @@ export default function App() {
             connected={connected}
             message={message}
             canStart={canStart}
+            user={user}
             onStartGame={startGame}
             onBack={backToLanding}
+            onLogout={handleLogout}
           />
         )}
         {currentScreen === SCREEN.reconnect && (

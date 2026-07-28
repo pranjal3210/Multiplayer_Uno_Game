@@ -7,8 +7,10 @@ export default function LobbyScreen({
   connected,
   message,
   canStart,
+  user,
   onStartGame,
   onBack,
+  onLogout,
 }) {
   return (
     <section className="screen screen-lobby">
@@ -25,6 +27,14 @@ export default function LobbyScreen({
             <div className={`status ${connected ? 'good' : 'warn'}`}>
               {connected ? 'Connected' : 'Disconnected'}
             </div>
+          </div>
+
+          <div className="profile-strip">
+            <div>
+              <div className="hand-title">Player Profile</div>
+              <div className="player-name">Welcome, {user?.username || 'Player'}</div>
+            </div>
+            <div className="status-pill good">Rating: {user?.rating ?? 1200}</div>
           </div>
 
           <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -71,6 +81,9 @@ export default function LobbyScreen({
             </button>
             <button className="btn btn-secondary" onClick={onBack} type="button">
               Back to Lobby
+            </button>
+            <button className="btn btn-secondary" onClick={onLogout} type="button">
+              Logout
             </button>
           </div>
 

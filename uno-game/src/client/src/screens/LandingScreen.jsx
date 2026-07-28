@@ -5,10 +5,11 @@ export default function LandingScreen({
   connected,
   queue,
   message,
-  onNameChange,
   onRoomChange,
   onJoinRoom,
   onFindMatch,
+  user,
+  onLogout,
 }) {
   return (
     <section className="screen screen-landing">
@@ -16,7 +17,7 @@ export default function LandingScreen({
         <div>
           <div className="badge">
             <span className="dot" />
-            Redis-backed realtime multiplayer
+            Welcome, {user?.username || 'Player'}
           </div>
           <h1 className="title">
             UNO
@@ -47,16 +48,12 @@ export default function LandingScreen({
         </div>
 
         <div className="panel glass">
-          <div className="field">
-            <label htmlFor="nameInput">Player name</label>
-            <input
-              id="nameInput"
-              className="input"
-              value={form.name}
-              onChange={(event) => onNameChange(event.target.value)}
-              placeholder="Your name"
-              onKeyDown={(event) => event.key === 'Enter' && onJoinRoom()}
-            />
+          <div className="profile-strip">
+            <div>
+              <div className="hand-title">Player Profile</div>
+              <div className="player-name">Welcome, {user?.username || form.name || 'Player'}</div>
+            </div>
+            <div className="status-pill good">Rating: {user?.rating ?? 1200}</div>
           </div>
           <div className="field" style={{ marginTop: 12 }}>
             <label htmlFor="roomInput">Room ID</label>
@@ -75,6 +72,9 @@ export default function LandingScreen({
             </button>
             <button className="btn btn-secondary" onClick={onFindMatch} type="button">
               Find Match
+            </button>
+            <button className="btn btn-secondary" onClick={onLogout} type="button">
+              Logout
             </button>
           </div>
           <div className={`queue ${queue.visible ? 'visible' : ''}`}>
@@ -95,8 +95,9 @@ export default function LandingScreen({
           </div>
           <div className="chip-grid" style={{ marginTop: 12 }}>
             <div className="chip">{connected ? 'Connected' : 'Offline'}</div>
+            <div className="chip">{user?.username || 'Player'}</div>
             <div className="chip">Socket.IO</div>
-            <div className="chip">Redis rooms</div>
+            <div className="chip">ELO {user?.rating ?? 1200}</div>
           </div>
         </div>
       </div>

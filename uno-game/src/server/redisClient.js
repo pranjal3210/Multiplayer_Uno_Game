@@ -75,6 +75,13 @@ class InMemoryRedis {
     return 'OK';
   }
 
+  async incr(key) {
+    const current = Number.parseInt((await this.get(key)) || '0', 10);
+    const next = current + 1;
+    await this.set(key, String(next));
+    return next;
+  }
+
   async rpush(key, value) {
     const list = this.sharedState.lists.get(key) || [];
     list.push(value);

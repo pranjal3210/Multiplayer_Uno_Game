@@ -1,15 +1,26 @@
 const { redis } = require('../server/redisClient');
 const { DEFAULT } = require('./elo');
+const { findUserById, updateUserRating } = require('../server/models/userStore');
 
 const RATING_KEY = (playerName) => `rating:${playerName}`;
 const LEADERBOARD_KEY = 'leaderboard';
 
 async function getRating(playerName) {
+  const user = await findUserById(playerName);
+  if (user) {
+    return user.rating;
+  }
+
   const value = await redis.get(RATING_KEY(playerName));
   return value ? Number.parseInt(value, 10) : DEFAULT;
 }
 
 async function setRating(playerName, rating) {
+  const user = await updateUserRating(playerName, rating);
+  if (user) {
+    return;
+  }
+
   await redis.set(RATING_KEY(playerName), String(rating));
 }
 

@@ -3,6 +3,7 @@
 Realtime UNO built with a Node/Express + Socket.IO server and a React/Vite client.
 
 The app supports:
+- User registration and JWT login
 - Direct room join
 - Matchmaking queue
 - Bot-filled tables
@@ -19,6 +20,8 @@ The app supports:
 - Express
 - Node.js
 - Redis via `ioredis`
+- JWT authentication
+- bcrypt password hashing
 - Jest for tests
 
 ## Project Structure
@@ -48,6 +51,7 @@ uno-game/
 - Redis optional, but recommended if you want persistence across restarts
 
 If Redis is not configured, the app falls back to an in-memory store for the current process only.
+Accounts and ratings are persistent when Redis is enabled.
 
 ## Setup
 
@@ -55,6 +59,12 @@ From the `uno-game` folder:
 
 ```bash
 npm install
+```
+
+If you are upgrading an existing checkout, install the new auth dependencies:
+
+```bash
+npm install bcrypt jsonwebtoken
 ```
 
 ## Run The App
@@ -102,6 +112,34 @@ npm start
 
 If Redis is not enabled, the app still runs, but room state and ratings reset when the server restarts.
 
+## Environment Variables
+
+Create a local `.env` from `uno-game/.env.example` or set these in your shell:
+
+- `JWT_SECRET` - secret used to sign JWTs. Required for production.
+- `TOKEN_EXPIRY` - JWT lifetime. Defaults to `7d`.
+- `REDIS_URL`, `REDIS_HOST`, or `REDIS_ENABLE=true` - enable Redis persistence.
+
+## Authentication
+
+Players must register or log in before reaching the lobby. The frontend stores the JWT in
+`localStorage`, restores the session through `GET /api/auth/me` after refresh, and sends the token
+in the Socket.IO handshake. The server verifies that token before any socket can join a room or
+matchmaking queue.
+
+User accounts are stored with:
+
+- `id`
+- `username`
+- `email`
+- `passwordHash`
+- `rating`
+- `createdAt`
+- `updatedAt`
+
+Passwords are hashed with bcrypt and are never returned by the API. Email and username are unique.
+Every new account starts with a rating of `1200`.
+
 ## Available Scripts
 
 - `npm run dev` - start the Vite dev server
@@ -137,6 +175,74 @@ If Redis is not enabled, the app still runs, but room state and ratings reset wh
 
 ## HTTP Endpoints
 
+### `POST /api/auth/register`
+
+Request:
+
+```json
+{
+  "username": "PlayerOne",
+  "email": "player@example.com",
+  "password": "password123"
+}
+```
+
+Response:
+
+```json
+{
+  "token": "jwt",
+  "user": {
+    "id": "1",
+    "username": "PlayerOne",
+    "email": "player@example.com",
+    "rating": 1200,
+    "createdAt": "2026-07-28T00:00:00.000Z",
+    "updatedAt": "2026-07-28T00:00:00.000Z"
+  }
+}
+```
+
+### `POST /api/auth/login`
+
+Request:
+
+```json
+{
+  "email": "player@example.com",
+  "password": "password123"
+}
+```
+
+Response:
+
+```json
+{
+  "token": "jwt",
+  "user": {
+    "id": "1",
+    "username": "PlayerOne",
+    "email": "player@example.com",
+    "rating": 1200
+  }
+}
+```
+
+### `GET /api/auth/me`
+
+Protected with `Authorization: Bearer <token>`.
+
+Returns:
+
+```json
+{
+  "id": "1",
+  "username": "PlayerOne",
+  "email": "player@example.com",
+  "rating": 1200
+}
+```
+
 ### `GET /leaderboard`
 
 Returns the top 10 ELO entries.
@@ -169,11 +275,11 @@ There is no `/health` endpoint in the current server.
 ## Game Flow
 
 1. Open the app.
-2. Enter a name.
+2. Register or log in.
 3. Join a room or use matchmaking.
 4. Start the game once enough players are present.
 5. Play cards, draw cards, or call UNO.
-6. When a round ends, ELO updates are sent automatically.
+6. When a round ends, ELO updates are saved to your user profile.
 
 ## Testing
 
